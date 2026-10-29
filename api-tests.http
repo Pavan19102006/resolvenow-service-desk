@@ -1,0 +1,339 @@
+### ============================================================
+### ResolveNow Service Desk — REST Client Test File
+### Use with VS Code "REST Client" extension (humao.rest-client)
+### or IntelliJ HTTP Client
+### ============================================================
+
+### ────────────────────────────────────────────────────────────
+### ENVIRONMENT CONFIGURATION:
+### Switch between LOCAL and RENDER by toggling the baseUrl below:
+### ────────────────────────────────────────────────────────────
+
+# 1. LOCALHOST (Default):
+@baseUrl = http://localhost:8080
+
+# 2. LIVE RENDER (Uncomment and replace with your actual Render URL when deployed):
+# @baseUrl = https://resolvenow-service-desk.onrender.com
+
+### ────────────────────────────────────────────────────────────
+### 1. AUTH SERVICE — Registration & Login
+### ────────────────────────────────────────────────────────────
+
+### 1.1 Register a new user
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "john",
+  "password": "pass123",
+  "email": "john@example.com"
+}
+
+### 1.2 Register an ADMIN user
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin123",
+  "email": "admin@resolvenow.com",
+  "role": "ADMIN"
+}
+
+### 1.3 Login (copy the token from response)
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "john",
+  "password": "pass123"
+}
+
+### 1.4 Validate token (paste token below)
+GET {{baseUrl}}/auth/validate?token={{login.response.body.token}}
+
+### ── NEGATIVE TESTS ──
+
+### 1.5 Register with duplicate username → 409 Conflict
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "john",
+  "password": "pass123",
+  "email": "john2@example.com"
+}
+
+### 1.6 Login with wrong password → 401 Unauthorized
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "john",
+  "password": "wrongpassword"
+}
+
+### 1.7 Register with invalid email → 400 Bad Request
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "baduser",
+  "password": "pass123",
+  "email": "not-an-email"
+}
+
+### 1.8 Register with short password → 400 Bad Request
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "shortpwd",
+  "password": "ab",
+  "email": "short@example.com"
+}
+
+### 1.9 Validate invalid token → 401
+GET {{baseUrl}}/auth/validate?token=invalid.token.here
+
+
+### ────────────────────────────────────────────────────────────
+### 2. COMPLAINT SERVICE — Create & Track Complaints
+### ────────────────────────────────────────────────────────────
+### ⚠️ IMPORTANT: First run request 1.3 (Login), then copy the
+### token and replace <JWT_TOKEN> below, OR use the variable
+### syntax if your REST client supports it.
+### ────────────────────────────────────────────────────────────
+
+@token = {{login.response.body.token}}
+
+### 2.1 Create a HIGH priority complaint (auto-assigns to ESCALATION)
+POST {{baseUrl}}/complaints
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Cannot login to the portal",
+  "description": "Getting 500 internal server error every time I try to login to the customer portal",
+  "priority": "HIGH",
+  "userId": 1
+}
+
+### 2.2 Create a MEDIUM priority complaint (auto-assigns to GENERAL_SUPPORT)
+POST {{baseUrl}}/complaints
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Billing discrepancy found",
+  "description": "I was charged twice for my subscription in the month of October 2026",
+  "priority": "MEDIUM",
+  "userId": 1
+}
+
+### 2.3 Create a LOW priority complaint (auto-assigns to SELF_SERVICE)
+POST {{baseUrl}}/complaints
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Need password reset instructions",
+  "description": "I forgot my password and need step by step instructions to reset it",
+  "priority": "LOW",
+  "userId": 1
+}
+
+### 2.4 Get all complaints
+GET {{baseUrl}}/complaints
+Authorization: Bearer {{token}}
+
+### 2.5 Get complaint by ID
+GET {{baseUrl}}/complaints/1
+Authorization: Bearer {{token}}
+
+### 2.6 Get complaints by user ID
+GET {{baseUrl}}/complaints/user/1
+Authorization: Bearer {{token}}
+
+### 2.7 Update complaint status to IN_PROGRESS
+PUT {{baseUrl}}/complaints/1/status?status=IN_PROGRESS
+Authorization: Bearer {{token}}
+
+### 2.8 Update complaint status to RESOLVED
+PUT {{baseUrl}}/complaints/1/status?status=RESOLVED
+Authorization: Bearer {{token}}
+
+### ── NEGATIVE TESTS ──
+
+### 2.9 Create complaint without token → 401
+POST {{baseUrl}}/complaints
+Content-Type: application/json
+
+{
+  "title": "No auth test",
+  "description": "This should fail because no token is provided",
+  "priority": "HIGH",
+  "userId": 1
+}
+
+### 2.10 Create complaint with validation errors → 400
+POST {{baseUrl}}/complaints
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "",
+  "description": "short",
+  "userId": null
+}
+
+### 2.11 Get non-existent complaint → 404
+GET {{baseUrl}}/complaints/9999
+Authorization: Bearer {{token}}
+
+### 2.12 Update with invalid status → 400
+PUT {{baseUrl}}/complaints/1/status?status=INVALID_STATUS
+Authorization: Bearer {{token}}
+
+
+### ────────────────────────────────────────────────────────────
+### 3. ASSIGNMENT SERVICE — View Assignments
+### ────────────────────────────────────────────────────────────
+
+### 3.1 Get assignment by ID
+GET {{baseUrl}}/assignments/1
+Authorization: Bearer {{token}}
+
+### 3.2 Get assignments for complaint #1
+GET {{baseUrl}}/assignments/complaint/1
+Authorization: Bearer {{token}}
+
+### 3.3 Get all ESCALATION department assignments
+GET {{baseUrl}}/assignments/department/ESCALATION
+Authorization: Bearer {{token}}
+
+### 3.4 Get all GENERAL_SUPPORT assignments
+GET {{baseUrl}}/assignments/department/GENERAL_SUPPORT
+Authorization: Bearer {{token}}
+
+### 3.5 Update assignment status to IN_PROGRESS
+PUT {{baseUrl}}/assignments/1/status?status=IN_PROGRESS
+Authorization: Bearer {{token}}
+
+### 3.6 Update assignment status to COMPLETED
+PUT {{baseUrl}}/assignments/1/status?status=COMPLETED
+Authorization: Bearer {{token}}
+
+### ── NEGATIVE TESTS ──
+
+### 3.7 Get non-existent assignment → 404
+GET {{baseUrl}}/assignments/9999
+Authorization: Bearer {{token}}
+
+### 3.8 Create assignment with missing fields → 400
+POST {{baseUrl}}/assignments
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "complaintId": null,
+  "department": ""
+}
+
+
+### ────────────────────────────────────────────────────────────
+### 4. NOTIFICATION SERVICE — View & Manage Notifications
+### ────────────────────────────────────────────────────────────
+
+### 4.1 Get all notifications for user 1
+GET {{baseUrl}}/notifications/user/1
+Authorization: Bearer {{token}}
+
+### 4.2 Get unread notifications for user 1
+GET {{baseUrl}}/notifications/user/1/unread
+Authorization: Bearer {{token}}
+
+### 4.3 Get notification by ID
+GET {{baseUrl}}/notifications/1
+Authorization: Bearer {{token}}
+
+### 4.4 Get notifications for complaint #1
+GET {{baseUrl}}/notifications/complaint/1
+Authorization: Bearer {{token}}
+
+### 4.5 Mark notification #1 as read
+PUT {{baseUrl}}/notifications/1/read
+Authorization: Bearer {{token}}
+
+### 4.6 Mark all notifications as read for user 1
+PUT {{baseUrl}}/notifications/user/1/read-all
+Authorization: Bearer {{token}}
+
+### 4.7 Create a manual notification
+POST {{baseUrl}}/notifications
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "userId": 1,
+  "complaintId": 1,
+  "message": "Your complaint has been reviewed by a senior agent",
+  "type": "STATUS_UPDATE"
+}
+
+### ── NEGATIVE TESTS ──
+
+### 4.8 Get non-existent notification → 404
+GET {{baseUrl}}/notifications/9999
+Authorization: Bearer {{token}}
+
+### 4.9 Create notification with missing fields → 400
+POST {{baseUrl}}/notifications
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "userId": null,
+  "message": "",
+  "type": ""
+}
+
+
+### ────────────────────────────────────────────────────────────
+### 5. END-TO-END FLOW (Run in sequence: 1.1 → 1.3 → 5.1 → 5.2 → 5.3 → 5.4)
+### ────────────────────────────────────────────────────────────
+
+### 5.1 Create complaint (triggers: Complaint → Assignment → Notification chain)
+POST {{baseUrl}}/complaints
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Payment gateway timeout",
+  "description": "The payment gateway times out after 30 seconds when trying to process credit card payments",
+  "priority": "HIGH",
+  "userId": 1
+}
+
+### 5.2 Check auto-generated assignment
+GET {{baseUrl}}/assignments/complaint/4
+Authorization: Bearer {{token}}
+
+### 5.3 Check auto-generated notification
+GET {{baseUrl}}/notifications/user/1/unread
+Authorization: Bearer {{token}}
+
+### 5.4 Update complaint status (triggers status notification)
+PUT {{baseUrl}}/complaints/4/status?status=RESOLVED
+Authorization: Bearer {{token}}
+
+
+### ────────────────────────────────────────────────────────────
+### 6. EUREKA DASHBOARD
+### ────────────────────────────────────────────────────────────
+
+### 6.1 Check registered services (open in browser: http://localhost:8761)
+GET http://localhost:8761/eureka/apps
+Accept: application/json
+
