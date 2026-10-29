@@ -4,18 +4,25 @@ echo "=================================================="
 echo "Starting ResolveNow Microservices Platform on Render"
 echo "=================================================="
 
-# Detect PostgreSQL DATABASE_URL if provided by Render
+# Parse Render DATABASE_URL into standard Spring DataSource properties
 if [ -n "$DATABASE_URL" ]; then
-    echo "Configuring PostgreSQL connection from Render DATABASE_URL..."
-    CLEAN_URL=$(echo "$DATABASE_URL" | sed 's/^postgres:\/\//postgresql:\/\//')
-    
-    case "$CLEAN_URL" in
-        jdbc:*) JDBC_URL="$CLEAN_URL" ;;
-        *)      JDBC_URL="jdbc:$CLEAN_URL" ;;
-    esac
-    
-    export SPRING_DATASOURCE_URL="$JDBC_URL"
-    echo "PostgreSQL JDBC configured."
+    echo "Parsing PostgreSQL DATABASE_URL..."
+    NO_PROTO="${DATABASE_URL#*://}"
+    USER_PASS="${NO_PROTO%%@*}"
+    HOST_DB="${NO_PROTO#*@}"
+
+    DB_USER="${USER_PASS%%:*}"
+    DB_PASS="${USER_PASS#*:}"
+
+    DB_HOST="${HOST_DB%%/*}"
+    DB_NAME="${HOST_DB#*/}"
+
+    export SPRING_DATASOURCE_URL="jdbc:postgresql://${DB_HOST}/${DB_NAME}"
+    export SPRING_DATASOURCE_USERNAME="${DB_USER}"
+    export SPRING_DATASOURCE_PASSWORD="${DB_PASS}"
+    echo "PostgreSQL configured: ${SPRING_DATASOURCE_URL} (User: ${SPRING_DATASOURCE_USERNAME})"
+else
+    echo "No DATABASE_URL found, using default datasource."
 fi
 
 # JVM memory settings optimized for Render 512MB RAM
@@ -23,6 +30,7 @@ JVM_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss256k -Djava.net.preferIPv
 
 echo "1. Starting Backend Microservices (Port 8081)..."
 java $JVM_OPTS -Xms32m -Xmx160m -Dserver.port=8081 -jar /app/render-backend.jar > /tmp/backend.log 2>&1 &
+BACKEND_PID=$!
 
 echo "Waiting for Backend to initialize..."
 for i in $(seq 1 30); do
@@ -32,6 +40,12 @@ for i in $(seq 1 30); do
     fi
     sleep 1
 done
+
+# If backend died, print log for debugging
+if ! kill -0 $BACKEND_PID 2>/dev/null; then
+    echo "ERROR: Backend failed to start! Dumping /tmp/backend.log:"
+    cat /tmp/backend.log
+fi
 
 # Configure API Gateway to route to localhost:8081
 export AUTH_SERVICE_URL="http://127.0.0.1:8081"
