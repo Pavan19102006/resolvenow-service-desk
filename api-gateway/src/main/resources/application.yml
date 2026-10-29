@@ -12,23 +12,25 @@ spring:
           lower-case-service-id: true
       routes:
         - id: auth-service
-          uri: lb://AUTH-SERVICE
+          uri: ${AUTH_SERVICE_URL:lb://AUTH-SERVICE}
           predicates:
             - Path=/auth/**
         - id: complaint-service
-          uri: lb://COMPLAINT-SERVICE
+          uri: ${COMPLAINT_SERVICE_URL:lb://COMPLAINT-SERVICE}
           predicates:
             - Path=/complaints/**
         - id: assignment-service
-          uri: lb://ASSIGNMENT-SERVICE
+          uri: ${ASSIGNMENT_SERVICE_URL:lb://ASSIGNMENT-SERVICE}
           predicates:
             - Path=/assignments/**
         - id: notification-service
-          uri: lb://NOTIFICATION-SERVICE
+          uri: ${NOTIFICATION_SERVICE_URL:lb://NOTIFICATION-SERVICE}
           predicates:
             - Path=/notifications/**
 
 eureka:
+  client:
+    enabled: ${EUREKA_CLIENT_ENABLED:true}
   instance:
     prefer-ip-address: true
     ip-address: 127.0.0.1

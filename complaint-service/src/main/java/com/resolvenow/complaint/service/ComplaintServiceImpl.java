@@ -23,14 +23,16 @@ import java.util.stream.Collectors;
 public class ComplaintServiceImpl {
 
     private static final Logger log = LoggerFactory.getLogger(ComplaintServiceImpl.class);
-    private static final String ASSIGNMENT_SERVICE_URL = "http://ASSIGNMENT-SERVICE/assignments";
-
+    private final String assignmentServiceUrl;
     private final ComplaintRepository complaintRepository;
     private final RestTemplate restTemplate;
 
-    public ComplaintServiceImpl(ComplaintRepository complaintRepository, RestTemplate restTemplate) {
+    public ComplaintServiceImpl(ComplaintRepository complaintRepository,
+                                RestTemplate restTemplate,
+                                @org.springframework.beans.factory.annotation.Value("${services.assignment.url:http://ASSIGNMENT-SERVICE/assignments}") String assignmentServiceUrl) {
         this.complaintRepository = complaintRepository;
         this.restTemplate = restTemplate;
+        this.assignmentServiceUrl = assignmentServiceUrl;
     }
 
     public ComplaintResponse createComplaint(ComplaintRequest request) {
@@ -51,7 +53,7 @@ public class ComplaintServiceImpl {
             assignmentRequest.setDepartment(determineDepartment(savedComplaint.getPriority()));
 
             Object assignmentResponse = restTemplate.postForObject(
-                    ASSIGNMENT_SERVICE_URL, assignmentRequest, Object.class);
+                    assignmentServiceUrl, assignmentRequest, Object.class);
             response.setAssignment(assignmentResponse);
             log.info("Complaint {} successfully assigned", savedComplaint.getId());
         } catch (Exception e) {

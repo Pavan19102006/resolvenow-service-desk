@@ -29,14 +29,17 @@ public class AssignmentServiceImpl {
     private final AssignmentRepository assignmentRepository;
     private final DepartmentRepository departmentRepository;
     private final RestTemplate restTemplate;
+    private final String notificationServiceUrl;
     private final Random random = new Random();
 
     public AssignmentServiceImpl(AssignmentRepository assignmentRepository,
                                   DepartmentRepository departmentRepository,
-                                  RestTemplate restTemplate) {
+                                  RestTemplate restTemplate,
+                                  @org.springframework.beans.factory.annotation.Value("${services.notification.url:http://NOTIFICATION-SERVICE/notifications}") String notificationServiceUrl) {
         this.assignmentRepository = assignmentRepository;
         this.departmentRepository = departmentRepository;
         this.restTemplate = restTemplate;
+        this.notificationServiceUrl = notificationServiceUrl;
     }
 
     public AssignmentResponse createAssignment(AssignmentRequest request) {
@@ -57,7 +60,7 @@ public class AssignmentServiceImpl {
                     "Your complaint #" + saved.getComplaintId() + " has been assigned to department: " + saved.getDepartment(),
                     "ASSIGNMENT"
             );
-            restTemplate.postForObject("http://NOTIFICATION-SERVICE/notifications", notification, Object.class);
+            restTemplate.postForObject(notificationServiceUrl, notification, Object.class);
             log.info("Notification sent for assignment of complaint #{}", saved.getComplaintId());
         } catch (Exception e) {
             log.warn("Failed to send notification for complaint #{}: {}", saved.getComplaintId(), e.getMessage());
@@ -97,7 +100,7 @@ public class AssignmentServiceImpl {
                     "Assignment for complaint #" + saved.getComplaintId() + " status updated to: " + status,
                     "STATUS_UPDATE"
             );
-            restTemplate.postForObject("http://NOTIFICATION-SERVICE/notifications", notification, Object.class);
+            restTemplate.postForObject(notificationServiceUrl, notification, Object.class);
         } catch (Exception e) {
             log.warn("Failed to send status update notification: {}", e.getMessage());
         }

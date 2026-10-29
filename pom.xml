@@ -25,6 +25,7 @@
         <module>complaint-service</module>
         <module>assignment-service</module>
         <module>notification-service</module>
+        <module>render-backend</module>
     </modules>
 
     <properties>
