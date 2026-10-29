@@ -34,25 +34,35 @@ for i in {1..30}; do
     sleep 1
 done
 
+resolve_jar() {
+    local dir=$1
+    local name=$2
+    if [ -f "$dir/target/${name}-1.0.0-exec.jar" ]; then
+        echo "$dir/target/${name}-1.0.0-exec.jar"
+    else
+        echo "$dir/target/${name}-1.0.0.jar"
+    fi
+}
+
 echo "----------------------------------------"
 echo "2. Starting Auth Service (Port 8081)..."
-nohup "$JAVA_CMD" $JAVA_OPTS -jar "$DIR/auth-service/target/auth-service-1.0.0.jar" > "$LOG_DIR/auth-service.log" 2>&1 &
+nohup "$JAVA_CMD" $JAVA_OPTS -jar "$(resolve_jar "$DIR/auth-service" auth-service)" > "$LOG_DIR/auth-service.log" 2>&1 &
 echo $! > "$LOG_DIR/auth-service.pid"
 
 echo "3. Starting Complaint Service (Port 8082)..."
-nohup "$JAVA_CMD" $JAVA_OPTS -jar "$DIR/complaint-service/target/complaint-service-1.0.0.jar" > "$LOG_DIR/complaint-service.log" 2>&1 &
+nohup "$JAVA_CMD" $JAVA_OPTS -jar "$(resolve_jar "$DIR/complaint-service" complaint-service)" > "$LOG_DIR/complaint-service.log" 2>&1 &
 echo $! > "$LOG_DIR/complaint-service.pid"
 
 echo "4. Starting Assignment Service (Port 8083)..."
-nohup "$JAVA_CMD" $JAVA_OPTS -jar "$DIR/assignment-service/target/assignment-service-1.0.0.jar" > "$LOG_DIR/assignment-service.log" 2>&1 &
+nohup "$JAVA_CMD" $JAVA_OPTS -jar "$(resolve_jar "$DIR/assignment-service" assignment-service)" > "$LOG_DIR/assignment-service.log" 2>&1 &
 echo $! > "$LOG_DIR/assignment-service.pid"
 
 echo "5. Starting Notification Service (Port 8084)..."
-nohup "$JAVA_CMD" $JAVA_OPTS -jar "$DIR/notification-service/target/notification-service-1.0.0.jar" > "$LOG_DIR/notification-service.log" 2>&1 &
+nohup "$JAVA_CMD" $JAVA_OPTS -jar "$(resolve_jar "$DIR/notification-service" notification-service)" > "$LOG_DIR/notification-service.log" 2>&1 &
 echo $! > "$LOG_DIR/notification-service.pid"
 
 echo "6. Starting API Gateway (Port 8080)..."
-nohup "$JAVA_CMD" $JAVA_OPTS -jar "$DIR/api-gateway/target/api-gateway-1.0.0.jar" > "$LOG_DIR/api-gateway.log" 2>&1 &
+nohup "$JAVA_CMD" $JAVA_OPTS -jar "$(resolve_jar "$DIR/api-gateway" api-gateway)" > "$LOG_DIR/api-gateway.log" 2>&1 &
 echo $! > "$LOG_DIR/api-gateway.pid"
 
 echo "----------------------------------------"

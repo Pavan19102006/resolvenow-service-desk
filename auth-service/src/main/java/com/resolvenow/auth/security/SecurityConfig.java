@@ -1,5 +1,6 @@
 package com.resolvenow.auth.security;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -27,12 +28,13 @@ public class SecurityConfig {
      * - Uses stateless session management
      */
     @Bean
+    @ConditionalOnMissingBean(SecurityFilterChain.class)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**").permitAll()
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll()
                 )
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
@@ -45,6 +47,7 @@ public class SecurityConfig {
      * Password encoder bean using BCrypt hashing algorithm.
      */
     @Bean
+    @ConditionalOnMissingBean(PasswordEncoder.class)
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
@@ -53,6 +56,7 @@ public class SecurityConfig {
      * Authentication manager bean from Spring Security's AuthenticationConfiguration.
      */
     @Bean
+    @ConditionalOnMissingBean(AuthenticationManager.class)
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
         return authenticationConfiguration.getAuthenticationManager();
     }

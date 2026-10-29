@@ -9,11 +9,11 @@
 ### Switch between LOCAL and RENDER by toggling the baseUrl below:
 ### ────────────────────────────────────────────────────────────
 
-# 1. LOCALHOST (Default):
-@baseUrl = http://localhost:8080
+# 1. LOCALHOST:
+# @baseUrl = http://localhost:8080
 
-# 2. LIVE RENDER (Uncomment and replace with your actual Render URL when deployed):
-# @baseUrl = https://resolvenow-service-desk.onrender.com
+# 2. LIVE RENDER:
+@baseUrl = https://resolvenow-service-desk.onrender.com
 
 ### ────────────────────────────────────────────────────────────
 ### 1. AUTH SERVICE — Registration & Login

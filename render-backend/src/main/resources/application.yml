@@ -4,6 +4,8 @@ server:
     so-linger: -1
 
 spring:
+  main:
+    allow-bean-definition-overriding: true
   application:
     name: render-backend
   datasource:
@@ -29,3 +31,4 @@ services:
     url: ${SERVICES_ASSIGNMENT_URL:http://localhost:8081/assignments}
   notification:
     url: ${SERVICES_NOTIFICATION_URL:http://localhost:8081/notifications}
+
