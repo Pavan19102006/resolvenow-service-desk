@@ -8,7 +8,8 @@ import {
   User,
   SlidersHorizontal,
   ExternalLink,
-  ShieldAlert
+  ShieldAlert,
+  Building2
 } from 'lucide-react';
 
 export default function ComplaintsTable({
@@ -21,37 +22,37 @@ export default function ComplaintsTable({
   selectedComplaintId
 }) {
   const [priorityFilter, setPriorityFilter] = useState('ALL');
-  const [departmentFilter, setDepartmentFilter] = useState('ALL');
+  const [adminDeptFilter, setAdminDeptFilter] = useState('ALL');
 
   const role = currentUser?.role || 'USER';
   const isCustomer = role === 'USER';
   const isStaff = role === 'STAFF';
   const isAdmin = role === 'ADMIN';
+  const staffDept = currentUser?.department || 'TECHNICAL';
 
   // Role-customized filter tabs
   const getTabs = () => {
     if (isCustomer) {
       return [
-        { id: 'ALL', label: 'All Requests' },
+        { id: 'ALL', label: `All Requests (${currentUser?.username || 'Me'})` },
         { id: 'OPEN', label: 'Open' },
         { id: 'IN_PROGRESS', label: 'In Progress' },
         { id: 'RESOLVED', label: 'Resolved' }
       ];
     } else if (isStaff) {
       return [
-        { id: 'ALL', label: 'All Tickets' },
-        { id: 'MY_DEPT', label: `My Dept (${currentUser?.department || 'TECH'})` },
+        { id: 'ALL', label: `All in ${staffDept.replace('_', ' ')}` },
         { id: 'OPEN', label: 'Pending Pickup' },
         { id: 'IN_PROGRESS', label: 'In Progress' },
-        { id: 'ESCALATION', label: 'Escalations' }
+        { id: 'RESOLVED', label: 'Resolved' }
       ];
     } else {
       return [
-        { id: 'ALL', label: 'All System Tickets' },
+        { id: 'ALL', label: 'All Platform Tickets' },
         { id: 'OPEN', label: 'Open Triage' },
         { id: 'IN_PROGRESS', label: 'In Progress' },
         { id: 'RESOLVED', label: 'Resolved' },
-        { id: 'ESCALATION', label: 'Escalated' }
+        { id: 'ESCALATION', label: 'Escalations' }
       ];
     }
   };
@@ -74,20 +75,13 @@ export default function ComplaintsTable({
     let matchesStatus = true;
     if (statusFilter === 'ALL') {
       matchesStatus = true;
-    } else if (statusFilter === 'MY_DEPT') {
-      const dept = currentUser?.department || 'GENERAL_SUPPORT';
-      matchesStatus = c.assignment?.department === dept;
-    } else if (statusFilter === 'MY_ASSIGNED') {
-      matchesStatus =
-        c.assignment?.assignedTo?.toLowerCase().includes(currentUser?.username?.toLowerCase() || '') ||
-        c.assignment?.department === currentUser?.department;
+    } else if (statusFilter === 'RESOLVED') {
+      matchesStatus = c.status === 'RESOLVED' || c.status === 'CLOSED';
     } else if (statusFilter === 'ESCALATION') {
       matchesStatus =
         c.assignment?.department === 'ESCALATION' ||
         c.priority === 'HIGH' ||
         c.priority === 'CRITICAL';
-    } else if (statusFilter === 'RESOLVED') {
-      matchesStatus = c.status === 'RESOLVED' || c.status === 'CLOSED';
     } else {
       matchesStatus = c.status === statusFilter;
     }
@@ -96,8 +90,7 @@ export default function ComplaintsTable({
       priorityFilter === 'ALL' || c.priority === priorityFilter;
 
     const matchesDept =
-      departmentFilter === 'ALL' ||
-      c.assignment?.department === departmentFilter;
+      !isAdmin || adminDeptFilter === 'ALL' || c.assignment?.department === adminDeptFilter;
 
     return matchesSearch && matchesStatus && matchesPriority && matchesDept;
   });
@@ -205,6 +198,20 @@ export default function ComplaintsTable({
 
         {/* Priority Filter & Counter */}
         <div className="flex items-center space-x-2">
+          {isAdmin && (
+            <select
+              value={adminDeptFilter}
+              onChange={(e) => setAdminDeptFilter(e.target.value)}
+              className="bg-[#111113] border border-[#27272A] text-[#A1A1AA] text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#8B5CF6]"
+            >
+              <option value="ALL">All Departments</option>
+              <option value="TECHNICAL">Technical</option>
+              <option value="BILLING">Billing</option>
+              <option value="GENERAL_SUPPORT">General Support</option>
+              <option value="ESCALATION">Escalation</option>
+            </select>
+          )}
+
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
@@ -228,7 +235,7 @@ export default function ComplaintsTable({
           <thead>
             <tr className="border-b border-[#27272A] text-[11px] font-medium text-[#71717A] bg-[#111113]/50">
               <th className="py-2.5 px-4 w-16">ID</th>
-              <th className="py-2.5 px-4">Title & Category</th>
+              <th className="py-2.5 px-4">Title & Issue Details</th>
               <th className="py-2.5 px-4 w-28">Priority</th>
               <th className="py-2.5 px-4 w-44">Department & Agent</th>
               <th className="py-2.5 px-4 w-32">Status</th>
@@ -262,7 +269,7 @@ export default function ComplaintsTable({
                       </div>
                       <div className="mt-0.5 flex items-center space-x-2">
                         <span className="px-1.5 py-0.2 rounded text-[10px] font-mono uppercase bg-[#111113] border border-[#27272A] text-[#A1A1AA]">
-                          {ticket.category || 'GENERAL'}
+                          {ticket.category || 'ISSUE'}
                         </span>
                         <span className="text-[10px] text-[#71717A] truncate max-w-[200px]">
                           {ticket.description}
@@ -282,7 +289,7 @@ export default function ComplaintsTable({
                       </div>
                       <div className="text-[10px] text-[#71717A] flex items-center space-x-1">
                         <User className="w-3 h-3 text-[#71717A]" />
-                        <span>{ticket.assignment?.assignedTo || 'Auto-Queue'}</span>
+                        <span>{ticket.assignment?.assignedTo || 'Auto-Allocated'}</span>
                       </div>
                     </td>
 
@@ -308,7 +315,11 @@ export default function ComplaintsTable({
             ) : (
               <tr>
                 <td colSpan="7" className="py-12 text-center text-[#71717A] text-xs">
-                  No tickets found matching your query.
+                  {isCustomer
+                    ? `No service requests found for account '${currentUser?.username}'. Click '+ Lodge Ticket' to submit one.`
+                    : isStaff
+                    ? `No complaints currently in the ${staffDept.replace('_', ' ')} department queue.`
+                    : 'No tickets found matching the selected filters.'}
                 </td>
               </tr>
             )}

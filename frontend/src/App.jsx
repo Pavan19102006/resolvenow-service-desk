@@ -66,12 +66,11 @@ export default function App() {
     try {
       if (!isSilent) setLoading(true);
       setError(null);
-      const data = await api.complaints.getAll();
-      const list = Array.isArray(data) ? data : [];
-      setComplaints(list);
+      const list = await api.complaints.getAll();
+      setComplaints(Array.isArray(list) ? list : []);
       setLastSynced(new Date());
 
-      // If issue details popup is currently open, keep its details updated with newest backend data
+      // If issue details popup is currently open, keep its details updated
       if (selectedComplaint) {
         const updated = list.find((c) => c.id === selectedComplaint.id);
         if (updated) setSelectedComplaint(updated);
@@ -105,7 +104,7 @@ export default function App() {
     setSyncCountdown(SYNC_INTERVAL_SECONDS);
   }, [loadComplaints, loadNotifications]);
 
-  // Periodic Auto-Sync Timer (updates backend data time to time)
+  // Periodic Auto-Sync Timer
   useEffect(() => {
     if (!token) return;
 
@@ -144,25 +143,10 @@ export default function App() {
     setIsIssueModalOpen(false);
   };
 
-  // Role Switcher for instant perspective testing
-  const handleSwitchRole = (newRole) => {
-    let username = 'john';
-    let department = null;
-    if (newRole === 'STAFF') {
-      username = 'sarah_staff';
-      department = 'TECHNICAL';
-    } else if (newRole === 'ADMIN') {
-      username = 'admin';
-    }
-    const updated = {
-      ...(user || {}),
-      id: user?.id || 1,
-      username,
-      role: newRole,
-      department
-    };
-    setUser(updated);
-    setCurrentUser(updated);
+  // Select User Persona (Customer / Staff / Admin)
+  const handleSelectUserPersona = (persona) => {
+    setUser(persona);
+    setCurrentUser(persona);
     setStatusFilter('ALL');
   };
 
@@ -183,22 +167,39 @@ export default function App() {
     refreshAll(true);
   };
 
+  // STRICT Role-based visibility filtering:
+  // 1. CUSTOMER (USER): only sees their own complaints (c.userId === user.id)
+  // 2. STAFF: only sees complaints assigned to their department (c.assignment?.department === user.department)
+  // 3. ADMIN: sees all complaints across the platform
+  const roleFilteredComplaints = complaints.filter((c) => {
+    if (!user) return true; // guest sees preview
+    if (user.role === 'USER') {
+      return Number(c.userId) === Number(user.id);
+    }
+    if (user.role === 'STAFF') {
+      const staffDept = user.department || 'TECHNICAL';
+      return c.assignment?.department === staffDept;
+    }
+    return true; // ADMIN sees all
+  });
+
   // Role-specific Header Title and Description
   const getDashboardHeading = () => {
     if (currentRole === 'USER') {
       return {
-        title: 'Customer Service Requests & Issues',
-        subtitle: 'Track your submitted grievances and observe automated departmental routing in real time'
+        title: `Customer Service Requests • ${user?.username || 'Customer'}`,
+        subtitle: `Displaying personal complaints submitted by customer account #${user?.id || 1} (${user?.username || 'Customer'})`
       };
     } else if (currentRole === 'STAFF') {
+      const staffDept = user?.department || 'TECHNICAL';
       return {
-        title: `Staff Workspace • ${user?.department || 'TECHNICAL'} Department`,
-        subtitle: `Logged in as Agent: ${user?.username || 'Staff'} • Active ticket pickup, triage & resolution desk`
+        title: `${staffDept.replace('_', ' ')} Department Queue`,
+        subtitle: `Staff Agent: ${user?.username || 'Agent'} • Monitoring and resolving ${staffDept.replace('_', ' ')} complaints only`
       };
     } else {
       return {
         title: 'System Admin Platform Governance & Operations',
-        subtitle: 'Pan-enterprise view across all microservices, Eureka instances, departments, and user workloads'
+        subtitle: 'Enterprise-wide view across all microservices, Eureka instances, departments, and user workloads'
       };
     }
   };
@@ -211,7 +212,7 @@ export default function App() {
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        ticketCount={complaints.length}
+        ticketCount={roleFilteredComplaints.length}
         user={user}
         onLogout={handleLogout}
         onOpenAuth={() => setIsAuthOpen(true)}
@@ -220,7 +221,7 @@ export default function App() {
           setBackendUrl(newUrl);
           refreshAll(false);
         }}
-        onSwitchRole={handleSwitchRole}
+        onSelectUserPersona={handleSelectUserPersona}
       />
 
       {/* Main Content Area (Offset by sidebar width of 256px / 64) */}
@@ -292,7 +293,7 @@ export default function App() {
 
           {/* 3. Four Role-Tailored Clean KPI Cards */}
           <KpiCards
-            complaints={complaints}
+            complaints={roleFilteredComplaints}
             currentUser={user}
             onFilterStatus={(status) => setStatusFilter(status)}
           />
@@ -325,7 +326,7 @@ export default function App() {
             </div>
 
             <ComplaintsTable
-              complaints={complaints}
+              complaints={roleFilteredComplaints}
               searchQuery={searchQuery}
               statusFilter={statusFilter}
               setStatusFilter={setStatusFilter}

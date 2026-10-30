@@ -7,7 +7,8 @@ import {
   AlertTriangle,
   UserCheck,
   ShieldAlert,
-  Sparkles
+  Sparkles,
+  Layers
 } from 'lucide-react';
 
 export default function KpiCards({ complaints = [], currentUser, onFilterStatus }) {
@@ -23,26 +24,16 @@ export default function KpiCards({ complaints = [], currentUser, onFilterStatus 
     (c) => c.status === 'RESOLVED' || c.status === 'CLOSED'
   ).length;
 
-  // Staff specific counts
-  const staffDept = currentUser?.department || 'GENERAL_SUPPORT';
-  const myAssignedCount = complaints.filter(
-    (c) =>
-      c.assignment?.assignedTo?.toLowerCase().includes(currentUser?.username?.toLowerCase() || '') ||
-      c.assignment?.department === staffDept
-  ).length;
-
-  const escalatedCount = complaints.filter(
-    (c) => c.assignment?.department === 'ESCALATION' || c.priority === 'HIGH' || c.priority === 'CRITICAL'
-  ).length;
+  const staffDept = currentUser?.department || 'TECHNICAL';
 
   let cards = [];
 
   if (isCustomer) {
     cards = [
       {
-        title: 'My Service Requests',
+        title: `My Requests (${currentUser?.username || 'Customer'})`,
         value: total,
-        subtext: 'Submitted by your account',
+        subtext: `Submitted by user #${currentUser?.id || 1}`,
         statusKey: 'ALL',
         icon: Inbox,
         iconColor: 'text-[#8B5CF6]',
@@ -51,7 +42,7 @@ export default function KpiCards({ complaints = [], currentUser, onFilterStatus 
       {
         title: 'Awaiting Response',
         value: openCount,
-        subtext: 'In queue for support triage',
+        subtext: 'In queue for staff review',
         statusKey: 'OPEN',
         icon: Clock,
         iconColor: 'text-amber-400',
@@ -69,7 +60,7 @@ export default function KpiCards({ complaints = [], currentUser, onFilterStatus 
       {
         title: 'Resolved for Me',
         value: resolvedCount,
-        subtext: 'Satisfied and completed',
+        subtext: 'Satisfied and closed',
         statusKey: 'RESOLVED',
         icon: CheckCircle2,
         iconColor: 'text-emerald-400',
@@ -79,18 +70,18 @@ export default function KpiCards({ complaints = [], currentUser, onFilterStatus 
   } else if (isStaff) {
     cards = [
       {
-        title: 'My Work Queue',
-        value: myAssignedCount,
-        subtext: `Assigned in ${staffDept}`,
-        statusKey: 'MY_ASSIGNED',
+        title: `${staffDept.replace('_', ' ')} Queue`,
+        value: total,
+        subtext: `All tickets in ${staffDept}`,
+        statusKey: 'ALL',
         icon: UserCheck,
         iconColor: 'text-[#8B5CF6]',
         iconBg: 'bg-[#8B5CF6]/10 border border-[#8B5CF6]/20'
       },
       {
-        title: 'Pending Triage',
+        title: `${staffDept.replace('_', ' ')} Open`,
         value: openCount,
-        subtext: 'Unassigned tickets awaiting pickup',
+        subtext: `Pending pickup in ${staffDept}`,
         statusKey: 'OPEN',
         icon: Clock,
         iconColor: 'text-amber-400',
@@ -99,16 +90,16 @@ export default function KpiCards({ complaints = [], currentUser, onFilterStatus 
       {
         title: 'In Active Resolution',
         value: inProgressCount,
-        subtext: 'Tickets currently under fix',
+        subtext: `Work in progress in ${staffDept}`,
         statusKey: 'IN_PROGRESS',
         icon: Activity,
         iconColor: 'text-[#8B5CF6]',
         iconBg: 'bg-[#8B5CF6]/10 border border-[#8B5CF6]/20'
       },
       {
-        title: 'Resolved Tickets',
+        title: 'Resolved in Department',
         value: resolvedCount,
-        subtext: 'Successfully closed tickets',
+        subtext: `Completed by ${staffDept} staff`,
         statusKey: 'RESOLVED',
         icon: CheckCircle2,
         iconColor: 'text-emerald-400',
@@ -117,11 +108,15 @@ export default function KpiCards({ complaints = [], currentUser, onFilterStatus 
     ];
   } else {
     // Admin Perspective
+    const escalatedCount = complaints.filter(
+      (c) => c.assignment?.department === 'ESCALATION' || c.priority === 'HIGH' || c.priority === 'CRITICAL'
+    ).length;
+
     cards = [
       {
         title: 'Platform Total Volume',
         value: total,
-        subtext: 'Total logged tickets across all services',
+        subtext: 'All complaints across all departments',
         statusKey: 'ALL',
         icon: Inbox,
         iconColor: 'text-[#8B5CF6]',
@@ -137,9 +132,9 @@ export default function KpiCards({ complaints = [], currentUser, onFilterStatus 
         iconBg: 'bg-rose-400/10 border border-rose-400/20'
       },
       {
-        title: 'Active In Progress',
+        title: 'Fleetwide In Progress',
         value: inProgressCount,
-        subtext: 'Live workloads with staff agents',
+        subtext: 'Tickets actively handled by staff',
         statusKey: 'IN_PROGRESS',
         icon: Activity,
         iconColor: 'text-[#8B5CF6]',

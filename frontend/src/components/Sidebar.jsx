@@ -16,7 +16,7 @@ import {
   Shield,
   UserCheck
 } from 'lucide-react';
-import { getBaseUrl, setBaseUrl, DEFAULT_CLOUD_URL, DEFAULT_LOCAL_URL, api, setCurrentUser } from '../services/api';
+import { getBaseUrl, setBaseUrl, DEFAULT_CLOUD_URL, DEFAULT_LOCAL_URL, api } from '../services/api';
 
 export default function Sidebar({
   activeTab,
@@ -27,13 +27,13 @@ export default function Sidebar({
   onOpenAuth,
   onOpenArchitecture,
   onBackendChange,
-  onSwitchRole
+  onSelectUserPersona
 }) {
   const [currentUrl, setCurrentUrl] = useState(getBaseUrl());
   const [pingLatency, setPingLatency] = useState(null);
   const [isLive, setIsLive] = useState(true);
   const [isSwitching, setIsSwitching] = useState(false);
-  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
+  const [activePersonaCategory, setActivePersonaCategory] = useState(user?.role || 'USER');
 
   const isRender = currentUrl.includes('render.com');
 
@@ -75,7 +75,7 @@ export default function Sidebar({
   const role = user?.role || 'USER';
 
   return (
-    <aside className="w-64 h-screen fixed top-0 left-0 bg-[#111113] border-r border-[#27272A] flex flex-col justify-between z-30 select-none">
+    <aside className="w-64 h-screen fixed top-0 left-0 bg-[#111113] border-r border-[#27272A] flex flex-col justify-between z-30 select-none overflow-y-auto">
       {/* Top Header & Brand */}
       <div>
         <div className="h-16 px-5 border-b border-[#27272A] flex items-center justify-between">
@@ -111,17 +111,15 @@ export default function Sidebar({
               <Inbox className={`w-4 h-4 ${activeTab === 'tickets' ? 'text-[#8B5CF6]' : 'text-[#71717A]'}`} />
               <span>
                 {role === 'USER'
-                  ? 'My Requests'
+                  ? 'My Customer Tickets'
                   : role === 'STAFF'
-                  ? 'Staff Queue'
-                  : 'Platform Tickets'}
+                  ? `${user?.department || 'Dept'} Queue`
+                  : 'All Platform Tickets'}
               </span>
             </div>
-            {ticketCount > 0 && (
-              <span className="px-1.5 py-0.5 text-[10px] font-mono rounded bg-[#8B5CF6]/15 text-[#8B5CF6] border border-[#8B5CF6]/25 font-semibold">
-                {ticketCount}
-              </span>
-            )}
+            <span className="px-1.5 py-0.5 text-[10px] font-mono rounded bg-[#8B5CF6]/15 text-[#8B5CF6] border border-[#8B5CF6]/25 font-semibold">
+              {ticketCount}
+            </span>
           </button>
 
           <button
@@ -135,10 +133,10 @@ export default function Sidebar({
             <Activity className={`w-4 h-4 ${activeTab === 'analytics' ? 'text-[#8B5CF6]' : 'text-[#71717A]'}`} />
             <span>
               {role === 'USER'
-                ? 'Ticket Milestones'
+                ? 'My Milestones'
                 : role === 'STAFF'
-                ? 'Workload & Triage'
-                : 'Ops & Governance'}
+                ? `${user?.department || 'Dept'} KPIs`
+                : 'System Analytics'}
             </span>
           </button>
 
@@ -150,57 +148,126 @@ export default function Sidebar({
             <span>Microservice Flow</span>
           </button>
         </nav>
+
+        {/* 1-Click Persona & Department Switcher */}
+        <div className="px-3 py-2 space-y-2 border-t border-[#27272A]">
+          <span className="text-[10px] font-semibold text-[#71717A] uppercase tracking-wider block">
+            Switch Category & Account
+          </span>
+
+          {/* Category Tabs */}
+          <div className="grid grid-cols-3 gap-1 p-1 bg-[#18181B] border border-[#27272A] rounded-lg text-[10px]">
+            <button
+              onClick={() => setActivePersonaCategory('USER')}
+              className={`py-1 rounded font-medium transition-colors ${
+                activePersonaCategory === 'USER'
+                  ? 'bg-[#8B5CF6] text-white'
+                  : 'text-[#71717A] hover:text-[#FAFAFA]'
+              }`}
+            >
+              Customers
+            </button>
+            <button
+              onClick={() => setActivePersonaCategory('STAFF')}
+              className={`py-1 rounded font-medium transition-colors ${
+                activePersonaCategory === 'STAFF'
+                  ? 'bg-[#8B5CF6] text-white'
+                  : 'text-[#71717A] hover:text-[#FAFAFA]'
+              }`}
+            >
+              Staff
+            </button>
+            <button
+              onClick={() => setActivePersonaCategory('ADMIN')}
+              className={`py-1 rounded font-medium transition-colors ${
+                activePersonaCategory === 'ADMIN'
+                  ? 'bg-[#8B5CF6] text-white'
+                  : 'text-[#71717A] hover:text-[#FAFAFA]'
+              }`}
+            >
+              Admin
+            </button>
+          </div>
+
+          {/* Sub-users by Category */}
+          {activePersonaCategory === 'USER' && (
+            <div className="space-y-1">
+              <span className="text-[10px] text-[#71717A] block">Select Customer Account:</span>
+              <div className="grid grid-cols-3 gap-1">
+                {[
+                  { username: 'john', id: 1, label: 'john' },
+                  { username: 'alex_customer', id: 2, label: 'alex' },
+                  { username: 'emily_user', id: 3, label: 'emily' }
+                ].map((u) => {
+                  const isCurrent = user?.username === u.username && user?.role === 'USER';
+                  return (
+                    <button
+                      key={u.username}
+                      onClick={() => onSelectUserPersona({ ...u, role: 'USER' })}
+                      className={`py-1 px-1 rounded text-[10px] font-mono border transition-colors truncate ${
+                        isCurrent
+                          ? 'bg-[#8B5CF6]/20 border-[#8B5CF6] text-[#FAFAFA] font-bold'
+                          : 'bg-[#18181B] border-[#27272A] text-[#A1A1AA] hover:text-white'
+                      }`}
+                      title={`Switch to customer: ${u.username}`}
+                    >
+                      {u.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {activePersonaCategory === 'STAFF' && (
+            <div className="space-y-1">
+              <span className="text-[10px] text-[#71717A] block">Select Department Staff:</span>
+              <div className="grid grid-cols-2 gap-1">
+                {[
+                  { username: 'sarah_staff', department: 'TECHNICAL', label: 'sarah (Tech)' },
+                  { username: 'mike_billing', department: 'BILLING', label: 'mike (Billing)' },
+                  { username: 'david_support', department: 'GENERAL_SUPPORT', label: 'david (Support)' },
+                  { username: 'lisa_escalation', department: 'ESCALATION', label: 'lisa (Escalation)' }
+                ].map((s) => {
+                  const isCurrent = user?.username === s.username && user?.department === s.department;
+                  return (
+                    <button
+                      key={s.username}
+                      onClick={() => onSelectUserPersona({ ...s, role: 'STAFF', id: 4 })}
+                      className={`py-1 px-1.5 rounded text-[10px] font-mono border transition-colors truncate ${
+                        isCurrent
+                          ? 'bg-[#8B5CF6]/20 border-[#8B5CF6] text-[#FAFAFA] font-bold'
+                          : 'bg-[#18181B] border-[#27272A] text-[#A1A1AA] hover:text-white'
+                      }`}
+                      title={`Department: ${s.department}`}
+                    >
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {activePersonaCategory === 'ADMIN' && (
+            <div>
+              <button
+                onClick={() => onSelectUserPersona({ username: 'admin', role: 'ADMIN', id: 99 })}
+                className={`w-full py-1.5 px-2 rounded text-[10px] font-mono border transition-colors ${
+                  user?.role === 'ADMIN'
+                    ? 'bg-[#8B5CF6]/20 border-[#8B5CF6] text-white font-bold'
+                    : 'bg-[#18181B] border-[#27272A] text-rose-400 hover:border-rose-400'
+                }`}
+              >
+                admin (Full Enterprise Access)
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Bottom Section: Role Switcher, Backend Selector & User Account */}
+      {/* Bottom Section: Backend Selector & User Account */}
       <div className="p-3 border-t border-[#27272A] space-y-2.5">
-        {/* Quick Role Perspective Switcher */}
-        {user && (
-          <div className="p-2 rounded-lg bg-[#18181B] border border-[#27272A] space-y-1.5">
-            <div className="flex items-center justify-between text-[10px] text-[#71717A]">
-              <span>Perspective:</span>
-              <span className="font-mono text-[#8B5CF6] font-semibold uppercase">
-                {role}
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-1">
-              <button
-                onClick={() => onSwitchRole('USER')}
-                className={`py-1 text-[10px] rounded font-medium transition-colors ${
-                  role === 'USER'
-                    ? 'bg-[#8B5CF6] text-white'
-                    : 'bg-[#111113] text-[#A1A1AA] hover:text-white'
-                }`}
-                title="View dashboard as Customer"
-              >
-                Customer
-              </button>
-              <button
-                onClick={() => onSwitchRole('STAFF')}
-                className={`py-1 text-[10px] rounded font-medium transition-colors ${
-                  role === 'STAFF'
-                    ? 'bg-[#8B5CF6] text-white'
-                    : 'bg-[#111113] text-[#A1A1AA] hover:text-white'
-                }`}
-                title="View dashboard as Company Support Staff"
-              >
-                Staff
-              </button>
-              <button
-                onClick={() => onSwitchRole('ADMIN')}
-                className={`py-1 text-[10px] rounded font-medium transition-colors ${
-                  role === 'ADMIN'
-                    ? 'bg-[#8B5CF6] text-white'
-                    : 'bg-[#111113] text-[#A1A1AA] hover:text-white'
-                }`}
-                title="View dashboard as System Administrator"
-              >
-                Admin
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Backend Environment Box */}
         <div className="p-2.5 rounded-lg bg-[#18181B] border border-[#27272A] text-xs">
           <div className="flex items-center justify-between mb-1.5">
@@ -236,19 +303,19 @@ export default function Sidebar({
           </div>
         </div>
 
-        {/* User Profile or Sign In */}
+        {/* Current User Card */}
         {user ? (
           <div className="p-2.5 rounded-lg bg-[#18181B] border border-[#27272A] flex items-center justify-between">
             <div className="flex items-center space-x-2 overflow-hidden">
-              <div className="w-7 h-7 rounded-full bg-[#8B5CF6]/20 border border-[#8B5CF6]/40 flex items-center justify-center text-[#8B5CF6] text-xs font-bold uppercase">
+              <div className="w-7 h-7 rounded-full bg-[#8B5CF6]/20 border border-[#8B5CF6]/40 flex items-center justify-center text-[#8B5CF6] text-xs font-bold uppercase shrink-0">
                 {user.username ? user.username.substring(0, 2) : 'US'}
               </div>
               <div className="overflow-hidden">
                 <span className="block text-xs font-medium text-[#FAFAFA] truncate">
                   {user.username}
                 </span>
-                <span className="block text-[10px] text-[#71717A] uppercase font-mono tracking-wider">
-                  {user.role || 'USER'} {user.department ? `• ${user.department}` : ''}
+                <span className="block text-[10px] text-[#71717A] uppercase font-mono tracking-wider truncate">
+                  {user.role} {user.department ? `• ${user.department}` : user.role === 'USER' ? `(User #${user.id})` : ''}
                 </span>
               </div>
             </div>
