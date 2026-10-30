@@ -6,7 +6,9 @@ import {
   Clock,
   Activity,
   User,
-  SlidersHorizontal
+  SlidersHorizontal,
+  ExternalLink,
+  ShieldAlert
 } from 'lucide-react';
 
 export default function ComplaintsTable({
@@ -14,11 +16,47 @@ export default function ComplaintsTable({
   searchQuery = '',
   statusFilter = 'ALL',
   setStatusFilter,
+  currentUser,
   onSelectComplaint,
   selectedComplaintId
 }) {
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [departmentFilter, setDepartmentFilter] = useState('ALL');
+
+  const role = currentUser?.role || 'USER';
+  const isCustomer = role === 'USER';
+  const isStaff = role === 'STAFF';
+  const isAdmin = role === 'ADMIN';
+
+  // Role-customized filter tabs
+  const getTabs = () => {
+    if (isCustomer) {
+      return [
+        { id: 'ALL', label: 'All Requests' },
+        { id: 'OPEN', label: 'Open' },
+        { id: 'IN_PROGRESS', label: 'In Progress' },
+        { id: 'RESOLVED', label: 'Resolved' }
+      ];
+    } else if (isStaff) {
+      return [
+        { id: 'ALL', label: 'All Tickets' },
+        { id: 'MY_DEPT', label: `My Dept (${currentUser?.department || 'TECH'})` },
+        { id: 'OPEN', label: 'Pending Pickup' },
+        { id: 'IN_PROGRESS', label: 'In Progress' },
+        { id: 'ESCALATION', label: 'Escalations' }
+      ];
+    } else {
+      return [
+        { id: 'ALL', label: 'All System Tickets' },
+        { id: 'OPEN', label: 'Open Triage' },
+        { id: 'IN_PROGRESS', label: 'In Progress' },
+        { id: 'RESOLVED', label: 'Resolved' },
+        { id: 'ESCALATION', label: 'Escalated' }
+      ];
+    }
+  };
+
+  const tabs = getTabs();
 
   // Filter complaints
   const filtered = complaints.filter((c) => {
@@ -32,11 +70,27 @@ export default function ComplaintsTable({
       c.assignment?.assignedTo?.toLowerCase().includes(q) ||
       String(c.id).includes(q);
 
-    const matchesStatus =
-      statusFilter === 'ALL' ||
-      (statusFilter === 'RESOLVED'
-        ? c.status === 'RESOLVED' || c.status === 'CLOSED'
-        : c.status === statusFilter);
+    // Status / Role tab matching
+    let matchesStatus = true;
+    if (statusFilter === 'ALL') {
+      matchesStatus = true;
+    } else if (statusFilter === 'MY_DEPT') {
+      const dept = currentUser?.department || 'GENERAL_SUPPORT';
+      matchesStatus = c.assignment?.department === dept;
+    } else if (statusFilter === 'MY_ASSIGNED') {
+      matchesStatus =
+        c.assignment?.assignedTo?.toLowerCase().includes(currentUser?.username?.toLowerCase() || '') ||
+        c.assignment?.department === currentUser?.department;
+    } else if (statusFilter === 'ESCALATION') {
+      matchesStatus =
+        c.assignment?.department === 'ESCALATION' ||
+        c.priority === 'HIGH' ||
+        c.priority === 'CRITICAL';
+    } else if (statusFilter === 'RESOLVED') {
+      matchesStatus = c.status === 'RESOLVED' || c.status === 'CLOSED';
+    } else {
+      matchesStatus = c.status === statusFilter;
+    }
 
     const matchesPriority =
       priorityFilter === 'ALL' || c.priority === priorityFilter;
@@ -129,27 +183,27 @@ export default function ComplaintsTable({
     <div className="rounded-xl bg-[#18181B] border border-[#27272A] overflow-hidden shadow-sm">
       {/* Table Filter Header */}
       <div className="p-3.5 border-b border-[#27272A] flex flex-wrap items-center justify-between gap-3">
-        {/* Status Tabs */}
-        <div className="flex items-center space-x-1">
-          {['ALL', 'OPEN', 'IN_PROGRESS', 'RESOLVED'].map((status) => {
-            const isActive = statusFilter === status;
+        {/* Role-Specific Filter Tabs */}
+        <div className="flex items-center space-x-1 overflow-x-auto pb-1 sm:pb-0">
+          {tabs.map((t) => {
+            const isActive = statusFilter === t.id;
             return (
               <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                key={t.id}
+                onClick={() => setStatusFilter(t.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                   isActive
                     ? 'bg-[#27272A] text-[#FAFAFA]'
                     : 'text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#27272A]/50'
                 }`}
               >
-                {status === 'ALL' ? 'All' : status.replace('_', ' ')}
+                {t.label}
               </button>
             );
           })}
         </div>
 
-        {/* Priority & Department Filters */}
+        {/* Priority Filter & Counter */}
         <div className="flex items-center space-x-2">
           <select
             value={priorityFilter}
@@ -190,7 +244,7 @@ export default function ComplaintsTable({
                   <tr
                     key={ticket.id}
                     onClick={() => onSelectComplaint(ticket)}
-                    className={`transition-colors duration-150 cursor-pointer ${
+                    className={`transition-colors duration-150 cursor-pointer group ${
                       isSelected
                         ? 'bg-[#8B5CF6]/10 hover:bg-[#8B5CF6]/15'
                         : 'hover:bg-[#1f1f23]'
@@ -203,7 +257,7 @@ export default function ComplaintsTable({
 
                     {/* Title & Category */}
                     <td className="py-3 px-4">
-                      <div className="font-medium text-[#FAFAFA] truncate max-w-sm">
+                      <div className="font-medium text-[#FAFAFA] group-hover:text-[#8B5CF6] transition-colors truncate max-w-sm">
                         {ticket.title}
                       </div>
                       <div className="mt-0.5 flex items-center space-x-2">
@@ -232,7 +286,7 @@ export default function ComplaintsTable({
                       </div>
                     </td>
 
-                    {/* Status Badge */}
+                    {/* Small Status Badge */}
                     <td className="py-3 px-4">
                       {getSmallStatusBadge(ticket.status)}
                     </td>
@@ -242,9 +296,11 @@ export default function ComplaintsTable({
                       {formatDate(ticket.createdAt)}
                     </td>
 
-                    {/* Chevron */}
+                    {/* Details Action Chevron */}
                     <td className="py-3 px-3 text-right">
-                      <ChevronRight className="w-4 h-4 text-[#71717A] inline-block" />
+                      <span className="text-[10px] text-[#71717A] group-hover:text-[#8B5CF6] transition-colors flex items-center justify-end">
+                        <ChevronRight className="w-4 h-4 inline-block group-hover:translate-x-0.5 transition-transform" />
+                      </span>
                     </td>
                   </tr>
                 );

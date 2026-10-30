@@ -8,7 +8,10 @@ import {
   Clock,
   Radio,
   X,
-  Check
+  Check,
+  Sparkles,
+  Shield,
+  Briefcase
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -20,6 +23,7 @@ export default function TopBar({
   lastSynced,
   syncCountdown,
   notifications,
+  currentUser,
   onRefreshNotifications,
   onOpenNewComplaint,
   onSelectComplaint
@@ -27,6 +31,7 @@ export default function TopBar({
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef(null);
 
+  const role = currentUser?.role || 'USER';
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
@@ -74,7 +79,13 @@ export default function TopBar({
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Global search tickets, departments, agents..."
+          placeholder={
+            role === 'USER'
+              ? 'Search my service requests, status, dates...'
+              : role === 'STAFF'
+              ? 'Search department queue, ticket IDs, issues...'
+              : 'Global admin search across all tickets & users...'
+          }
           className="w-full bg-[#18181B] border border-[#27272A] text-[#FAFAFA] placeholder-[#71717A] text-xs rounded-lg pl-9 pr-8 py-2 focus:outline-none focus:border-[#8B5CF6] transition-colors"
         />
         {searchQuery && (
@@ -87,8 +98,26 @@ export default function TopBar({
         )}
       </div>
 
-      {/* Right Controls: Auto-Sync, Notifications, New Complaint */}
+      {/* Right Controls: Role Badge, Auto-Sync, Notifications, New Complaint */}
       <div className="flex items-center space-x-3">
+        {/* Role Pill Indicator */}
+        <div className="hidden lg:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-[#18181B] border border-[#27272A] text-xs">
+          {role === 'ADMIN' ? (
+            <Shield className="w-3.5 h-3.5 text-rose-400" />
+          ) : role === 'STAFF' ? (
+            <Briefcase className="w-3.5 h-3.5 text-[#8B5CF6]" />
+          ) : (
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+          )}
+          <span className="text-[11px] font-mono text-[#FAFAFA]">
+            {role === 'ADMIN'
+              ? 'Admin Mode'
+              : role === 'STAFF'
+              ? `Staff Desk (${currentUser?.department || 'TECH'})`
+              : 'Customer Portal'}
+          </span>
+        </div>
+
         {/* Real-time Auto-Sync Status Indicator */}
         <div className="hidden md:flex items-center space-x-2 text-xs text-[#A1A1AA] bg-[#18181B] border border-[#27272A] px-2.5 py-1.5 rounded-lg">
           <span className="relative flex h-2 w-2">
@@ -185,7 +214,7 @@ export default function TopBar({
           className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-[#8B5CF6] hover:bg-[#7C3AED] text-[#FAFAFA] text-xs font-medium shadow-sm shadow-[#8B5CF6]/25 transition-transform active:scale-95"
         >
           <Plus className="w-4 h-4" />
-          <span>Lodge Ticket</span>
+          <span>{role === 'STAFF' ? 'Log Ticket' : 'Lodge Ticket'}</span>
         </button>
       </div>
     </header>

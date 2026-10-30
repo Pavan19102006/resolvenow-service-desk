@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import KpiCards from './components/KpiCards';
 import ComplaintsTable from './components/ComplaintsTable';
-import ComplaintDrawer from './components/ComplaintDrawer';
+import IssueDetailsModal from './components/IssueDetailsModal';
 import NewComplaintModal from './components/NewComplaintModal';
 import AuthModal from './components/AuthModal';
 import ArchitectureModal from './components/ArchitectureModal';
@@ -21,7 +21,10 @@ import {
   RefreshCw,
   ExternalLink,
   ShieldAlert,
-  ArrowRight
+  ArrowRight,
+  Briefcase,
+  Layers,
+  Sparkles
 } from 'lucide-react';
 
 const SYNC_INTERVAL_SECONDS = 5;
@@ -39,8 +42,9 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
 
-  // Slide-out Drawer for selected complaint
+  // Issue Details Centered Modal Popup
   const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
 
   // Modals
   const [isNewComplaintOpen, setIsNewComplaintOpen] = useState(false);
@@ -54,6 +58,8 @@ export default function App() {
   // Backend URL tracker
   const [backendUrl, setBackendUrl] = useState(getBaseUrl());
 
+  const currentRole = user?.role || 'USER';
+
   // Fetch Complaints from Backend
   const loadComplaints = useCallback(async (isSilent = false) => {
     if (!token) return;
@@ -65,18 +71,16 @@ export default function App() {
       setComplaints(list);
       setLastSynced(new Date());
 
-      // If drawer is currently open, keep its details updated with newest backend data
+      // If issue details popup is currently open, keep its details updated with newest backend data
       if (selectedComplaint) {
         const updated = list.find((c) => c.id === selectedComplaint.id);
         if (updated) setSelectedComplaint(updated);
       }
     } catch (err) {
       if (err.status === 401) {
-        // Session expired
         handleLogout();
         setError('Your session has expired. Please sign in again.');
       } else {
-        // Network or server error
         setError(err.message || 'Cannot fetch data from backend.');
       }
     } finally {
@@ -105,10 +109,8 @@ export default function App() {
   useEffect(() => {
     if (!token) return;
 
-    // Initial load
     refreshAll(false);
 
-    // 1-second interval to decrement countdown and auto-sync
     const timer = setInterval(() => {
       setSyncCountdown((prev) => {
         if (prev <= 1) {
@@ -139,9 +141,28 @@ export default function App() {
     setComplaints([]);
     setNotifications([]);
     setSelectedComplaint(null);
+    setIsIssueModalOpen(false);
   };
 
-  // Handle status update directly in drawer or table
+  // Role Switcher for instant perspective testing
+  const handleSwitchRole = (newRole) => {
+    const updated = {
+      ...(user || { id: 1, username: newRole === 'ADMIN' ? 'admin' : newRole === 'STAFF' ? 'sarah_staff' : 'john' }),
+      role: newRole,
+      department: newRole === 'STAFF' ? 'TECHNICAL' : null
+    };
+    setUser(updated);
+    setCurrentUser(updated);
+    setStatusFilter('ALL');
+  };
+
+  // Handle row click -> open centered issue details popup
+  const handleSelectComplaint = (ticket) => {
+    setSelectedComplaint(ticket);
+    setIsIssueModalOpen(true);
+  };
+
+  // Handle status update directly in popup modal
   const handleStatusUpdated = (id, newStatus) => {
     setComplaints((prev) =>
       prev.map((c) => (c.id === id ? { ...c, status: newStatus } : c))
@@ -149,9 +170,30 @@ export default function App() {
     if (selectedComplaint && selectedComplaint.id === id) {
       setSelectedComplaint((prev) => ({ ...prev, status: newStatus }));
     }
-    // Refresh backend to confirm persistence
     refreshAll(true);
   };
+
+  // Role-specific Header Title and Description
+  const getDashboardHeading = () => {
+    if (currentRole === 'USER') {
+      return {
+        title: 'Customer Service Requests & Issues',
+        subtitle: 'Track your submitted grievances and observe automated departmental routing in real time'
+      };
+    } else if (currentRole === 'STAFF') {
+      return {
+        title: `Staff Workspace • ${user?.department || 'TECHNICAL'} Department`,
+        subtitle: `Logged in as Agent: ${user?.username || 'Staff'} • Active ticket pickup, triage & resolution desk`
+      };
+    } else {
+      return {
+        title: 'System Admin Platform Governance & Operations',
+        subtitle: 'Pan-enterprise view across all microservices, Eureka instances, departments, and user workloads'
+      };
+    }
+  };
+
+  const heading = getDashboardHeading();
 
   return (
     <div className="min-h-screen bg-[#09090B] text-[#FAFAFA] font-sans flex antialiased selection:bg-[#8B5CF6] selection:text-white">
@@ -168,6 +210,7 @@ export default function App() {
           setBackendUrl(newUrl);
           refreshAll(false);
         }}
+        onSwitchRole={handleSwitchRole}
       />
 
       {/* Main Content Area (Offset by sidebar width of 256px / 64) */}
@@ -181,6 +224,7 @@ export default function App() {
           lastSynced={lastSynced}
           syncCountdown={syncCountdown}
           notifications={notifications}
+          currentUser={user}
           onRefreshNotifications={loadNotifications}
           onOpenNewComplaint={() => {
             if (!token) {
@@ -191,7 +235,7 @@ export default function App() {
           }}
           onSelectComplaint={(complaintId) => {
             const found = complaints.find((c) => c.id === complaintId);
-            if (found) setSelectedComplaint(found);
+            if (found) handleSelectComplaint(found);
           }}
         />
 
@@ -204,11 +248,11 @@ export default function App() {
                 <div className="flex items-center space-x-2">
                   <span className="w-2 h-2 rounded-full bg-[#8B5CF6] animate-pulse"></span>
                   <span className="text-xs font-semibold text-[#FAFAFA]">
-                    Connect to Live Microservices
+                    ResolveNow Microservices Live Connection
                   </span>
                 </div>
                 <p className="text-[11px] text-[#A1A1AA]">
-                  Sign in or register with 1-click test credentials (<span className="text-[#8B5CF6] font-mono">john / pass123</span>) to lodge tickets and observe real-time departmental auto-routing.
+                  Sign in or register as <span className="text-[#8B5CF6] font-mono">Customer</span>, <span className="text-[#8B5CF6] font-mono">Company Staff</span>, or <span className="text-[#8B5CF6] font-mono">Admin</span> using 1-click test personas to explore role-tailored dashboards.
                 </p>
               </div>
               <button
@@ -236,27 +280,28 @@ export default function App() {
             </div>
           )}
 
-          {/* 3. Four Clean KPI Cards */}
+          {/* 3. Four Role-Tailored Clean KPI Cards */}
           <KpiCards
             complaints={complaints}
+            currentUser={user}
             onFilterStatus={(status) => setStatusFilter(status)}
           />
 
-          {/* 4. Professional Complaints Table */}
+          {/* 4. Professional Complaints Table with Role-Specific Views */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-[#FAFAFA]">
-                  Customer Grievances & Service Tickets
+                  {heading.title}
                 </h2>
                 <p className="text-[11px] text-[#71717A]">
-                  Dispatched via Spring Cloud Gateway and auto-assigned by the Assignment microservice
+                  {heading.subtitle}
                 </p>
               </div>
 
               <div className="flex items-center space-x-2">
                 <span className="text-[10px] font-mono text-[#71717A] hidden sm:inline">
-                  Updated every 5s
+                  Auto-sync: 5s
                 </span>
                 <button
                   onClick={() => refreshAll(false)}
@@ -274,17 +319,23 @@ export default function App() {
               searchQuery={searchQuery}
               statusFilter={statusFilter}
               setStatusFilter={setStatusFilter}
-              onSelectComplaint={(ticket) => setSelectedComplaint(ticket)}
+              currentUser={user}
+              onSelectComplaint={handleSelectComplaint}
               selectedComplaintId={selectedComplaint?.id}
             />
           </div>
         </main>
       </div>
 
-      {/* 5. Slide-Out Drawer for Complaint Details */}
-      <ComplaintDrawer
+      {/* 5. Issue Details Centered Popup Modal */}
+      <IssueDetailsModal
+        isOpen={isIssueModalOpen}
         complaint={selectedComplaint}
-        onClose={() => setSelectedComplaint(null)}
+        currentUser={user}
+        onClose={() => {
+          setIsIssueModalOpen(false);
+          setSelectedComplaint(null);
+        }}
         onStatusUpdated={handleStatusUpdated}
       />
 

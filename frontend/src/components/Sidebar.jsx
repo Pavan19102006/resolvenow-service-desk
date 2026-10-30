@@ -11,9 +11,12 @@ import {
   Server,
   RefreshCw,
   Check,
-  ChevronDown
+  ChevronDown,
+  Briefcase,
+  Shield,
+  UserCheck
 } from 'lucide-react';
-import { getBaseUrl, setBaseUrl, DEFAULT_CLOUD_URL, DEFAULT_LOCAL_URL, api } from '../services/api';
+import { getBaseUrl, setBaseUrl, DEFAULT_CLOUD_URL, DEFAULT_LOCAL_URL, api, setCurrentUser } from '../services/api';
 
 export default function Sidebar({
   activeTab,
@@ -23,12 +26,14 @@ export default function Sidebar({
   onLogout,
   onOpenAuth,
   onOpenArchitecture,
-  onBackendChange
+  onBackendChange,
+  onSwitchRole
 }) {
   const [currentUrl, setCurrentUrl] = useState(getBaseUrl());
   const [pingLatency, setPingLatency] = useState(null);
   const [isLive, setIsLive] = useState(true);
   const [isSwitching, setIsSwitching] = useState(false);
+  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
 
   const isRender = currentUrl.includes('render.com');
 
@@ -67,6 +72,8 @@ export default function Sidebar({
     setTimeout(() => setIsSwitching(false), 400);
   };
 
+  const role = user?.role || 'USER';
+
   return (
     <aside className="w-64 h-screen fixed top-0 left-0 bg-[#111113] border-r border-[#27272A] flex flex-col justify-between z-30 select-none">
       {/* Top Header & Brand */}
@@ -102,7 +109,13 @@ export default function Sidebar({
           >
             <div className="flex items-center space-x-2.5">
               <Inbox className={`w-4 h-4 ${activeTab === 'tickets' ? 'text-[#8B5CF6]' : 'text-[#71717A]'}`} />
-              <span>Complaints</span>
+              <span>
+                {role === 'USER'
+                  ? 'My Requests'
+                  : role === 'STAFF'
+                  ? 'Staff Queue'
+                  : 'Platform Tickets'}
+              </span>
             </div>
             {ticketCount > 0 && (
               <span className="px-1.5 py-0.5 text-[10px] font-mono rounded bg-[#8B5CF6]/15 text-[#8B5CF6] border border-[#8B5CF6]/25 font-semibold">
@@ -120,7 +133,13 @@ export default function Sidebar({
             }`}
           >
             <Activity className={`w-4 h-4 ${activeTab === 'analytics' ? 'text-[#8B5CF6]' : 'text-[#71717A]'}`} />
-            <span>KPIs & Routing</span>
+            <span>
+              {role === 'USER'
+                ? 'Ticket Milestones'
+                : role === 'STAFF'
+                ? 'Workload & Triage'
+                : 'Ops & Governance'}
+            </span>
           </button>
 
           <button
@@ -128,13 +147,60 @@ export default function Sidebar({
             className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#18181B]/50 transition-colors"
           >
             <Layers className="w-4 h-4 text-[#71717A]" />
-            <span>Architecture Flow</span>
+            <span>Microservice Flow</span>
           </button>
         </nav>
       </div>
 
-      {/* Bottom Section: Backend Selector & User Account */}
-      <div className="p-3 border-t border-[#27272A] space-y-3">
+      {/* Bottom Section: Role Switcher, Backend Selector & User Account */}
+      <div className="p-3 border-t border-[#27272A] space-y-2.5">
+        {/* Quick Role Perspective Switcher */}
+        {user && (
+          <div className="p-2 rounded-lg bg-[#18181B] border border-[#27272A] space-y-1.5">
+            <div className="flex items-center justify-between text-[10px] text-[#71717A]">
+              <span>Perspective:</span>
+              <span className="font-mono text-[#8B5CF6] font-semibold uppercase">
+                {role}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-1">
+              <button
+                onClick={() => onSwitchRole('USER')}
+                className={`py-1 text-[10px] rounded font-medium transition-colors ${
+                  role === 'USER'
+                    ? 'bg-[#8B5CF6] text-white'
+                    : 'bg-[#111113] text-[#A1A1AA] hover:text-white'
+                }`}
+                title="View dashboard as Customer"
+              >
+                Customer
+              </button>
+              <button
+                onClick={() => onSwitchRole('STAFF')}
+                className={`py-1 text-[10px] rounded font-medium transition-colors ${
+                  role === 'STAFF'
+                    ? 'bg-[#8B5CF6] text-white'
+                    : 'bg-[#111113] text-[#A1A1AA] hover:text-white'
+                }`}
+                title="View dashboard as Company Support Staff"
+              >
+                Staff
+              </button>
+              <button
+                onClick={() => onSwitchRole('ADMIN')}
+                className={`py-1 text-[10px] rounded font-medium transition-colors ${
+                  role === 'ADMIN'
+                    ? 'bg-[#8B5CF6] text-white'
+                    : 'bg-[#111113] text-[#A1A1AA] hover:text-white'
+                }`}
+                title="View dashboard as System Administrator"
+              >
+                Admin
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Backend Environment Box */}
         <div className="p-2.5 rounded-lg bg-[#18181B] border border-[#27272A] text-xs">
           <div className="flex items-center justify-between mb-1.5">
@@ -182,7 +248,7 @@ export default function Sidebar({
                   {user.username}
                 </span>
                 <span className="block text-[10px] text-[#71717A] uppercase font-mono tracking-wider">
-                  {user.role || 'USER'}
+                  {user.role || 'USER'} {user.department ? `• ${user.department}` : ''}
                 </span>
               </div>
             </div>

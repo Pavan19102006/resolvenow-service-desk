@@ -7,7 +7,9 @@ import {
   AlertCircle,
   KeyRound,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  Briefcase,
+  UserCheck
 } from 'lucide-react';
 import { api, setToken, setCurrentUser } from '../services/api';
 
@@ -17,36 +19,41 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   const [password, setPassword] = useState('pass123');
   const [email, setEmail] = useState('john@example.com');
   const [role, setRole] = useState('USER');
+  const [department, setDepartment] = useState('TECHNICAL');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [successMsg, setSuccessMsg] = useState(null);
 
   if (!isOpen) return null;
 
-  const handleAutofill = (userType = 'john') => {
-    if (userType === 'john') {
+  const handleAutofill = (userType) => {
+    setError(null);
+    if (userType === 'customer') {
       setUsername('john');
       setPassword('pass123');
       setEmail('john@example.com');
       setRole('USER');
-    } else {
+    } else if (userType === 'staff') {
+      setUsername('sarah_staff');
+      setPassword('staff123');
+      setEmail('sarah.staff@resolvenow.io');
+      setRole('STAFF');
+      setDepartment('TECHNICAL');
+    } else if (userType === 'admin') {
       setUsername('admin');
       setPassword('admin123');
-      setEmail('admin@example.com');
+      setEmail('admin@resolvenow.io');
       setRole('ADMIN');
     }
-    setError(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setSuccessMsg(null);
 
     try {
       if (tab === 'register') {
-        // 1. Call Register
+        // 1. Register with backend
         await api.auth.register({
           username,
           password,
@@ -54,7 +61,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           role
         });
 
-        // 2. Automatically log in after registration
+        // 2. Automatically log in right after registration
         const loginRes = await api.auth.login({
           username,
           password
@@ -62,7 +69,8 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
 
         const userData = {
           username: loginRes.username || username,
-          role,
+          role: role || 'USER',
+          department: role === 'STAFF' ? department : null,
           id: loginRes.userId || 1
         };
 
@@ -72,15 +80,24 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         if (onAuthSuccess) onAuthSuccess(userData, loginRes.token);
         onClose();
       } else {
-        // Login flow
+        // Sign in
         const loginRes = await api.auth.login({
           username,
           password
         });
 
+        // Infer role from username if not returned by legacy auth payload
+        let resolvedRole = role || 'USER';
+        if (username.toLowerCase().includes('admin')) {
+          resolvedRole = 'ADMIN';
+        } else if (username.toLowerCase().includes('staff') || username.toLowerCase().includes('agent')) {
+          resolvedRole = 'STAFF';
+        }
+
         const userData = {
           username: loginRes.username || username,
-          role: role || 'USER',
+          role: resolvedRole,
+          department: resolvedRole === 'STAFF' ? department : null,
           id: loginRes.userId || 1
         };
 
@@ -93,7 +110,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     } catch (err) {
       if (err.status === 401 && tab === 'login') {
         setError(
-          `User '${username}' does not exist or password was incorrect. Please click the "Register" tab to create this account in 1 click.`
+          `User '${username}' does not exist or password was incorrect. Click "Register" to create this account in 1 click.`
         );
       } else {
         setError(err.message || 'Authentication failed. Please verify credentials.');
@@ -112,7 +129,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
       />
 
       <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative w-full max-w-md rounded-xl bg-[#18181B] border border-[#27272A] p-6 shadow-2xl text-[#FAFAFA] animate-fade-in space-y-4">
+        <div className="relative w-full max-w-md rounded-2xl bg-[#18181B] border border-[#27272A] p-6 shadow-2xl text-[#FAFAFA] animate-fade-in space-y-4">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-[#27272A] pb-3">
             <div className="flex items-center space-x-2">
@@ -163,23 +180,46 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             </button>
           </div>
 
-          {/* Quick 1-Click Autofill Helper */}
-          <div className="p-2.5 rounded-lg bg-[#111113] border border-[#27272A] flex items-center justify-between text-xs">
-            <span className="text-[11px] text-[#71717A]">Quick Test Fill:</span>
-            <div className="flex items-center space-x-1.5">
+          {/* Quick 1-Click Autofill Helper for All 3 Roles */}
+          <div className="p-3 rounded-xl bg-[#111113] border border-[#27272A] space-y-2">
+            <span className="text-[11px] text-[#71717A] font-medium block">
+              1-Click Test Personas:
+            </span>
+            <div className="grid grid-cols-3 gap-1.5">
               <button
                 type="button"
-                onClick={() => handleAutofill('john')}
-                className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-[#18181B] border border-[#27272A] text-[#8B5CF6] hover:border-[#8B5CF6]/50 transition-colors"
+                onClick={() => handleAutofill('customer')}
+                className={`py-1.5 px-2 rounded-lg text-[10px] font-mono border transition-colors ${
+                  role === 'USER'
+                    ? 'bg-[#8B5CF6]/15 border-[#8B5CF6]/40 text-[#FAFAFA]'
+                    : 'bg-[#18181B] border-[#27272A] text-[#A1A1AA] hover:text-[#FAFAFA]'
+                }`}
               >
-                john / pass123
+                Customer (john)
               </button>
+
+              <button
+                type="button"
+                onClick={() => handleAutofill('staff')}
+                className={`py-1.5 px-2 rounded-lg text-[10px] font-mono border transition-colors ${
+                  role === 'STAFF'
+                    ? 'bg-[#8B5CF6]/15 border-[#8B5CF6]/40 text-[#FAFAFA]'
+                    : 'bg-[#18181B] border-[#27272A] text-[#A1A1AA] hover:text-[#FAFAFA]'
+                }`}
+              >
+                Staff (sarah)
+              </button>
+
               <button
                 type="button"
                 onClick={() => handleAutofill('admin')}
-                className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-[#18181B] border border-[#27272A] text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
+                className={`py-1.5 px-2 rounded-lg text-[10px] font-mono border transition-colors ${
+                  role === 'ADMIN'
+                    ? 'bg-[#8B5CF6]/15 border-[#8B5CF6]/40 text-[#FAFAFA]'
+                    : 'bg-[#18181B] border-[#27272A] text-[#A1A1AA] hover:text-[#FAFAFA]'
+                }`}
               >
-                admin
+                Admin (admin)
               </button>
             </div>
           </div>
@@ -233,31 +273,50 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="john@example.com"
+                    placeholder="user@example.com"
                     className="w-full bg-[#111113] border border-[#27272A] rounded-lg px-3 py-2 text-xs text-[#FAFAFA] placeholder-[#71717A] focus:outline-none focus:border-[#8B5CF6] transition-colors"
                   />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1">
-                    Role
+                    Account Role
                   </label>
                   <select
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
                     className="w-full bg-[#111113] border border-[#27272A] rounded-lg px-3 py-2 text-xs text-[#FAFAFA] focus:outline-none focus:border-[#8B5CF6]"
                   >
-                    <option value="USER">User (Customer)</option>
-                    <option value="ADMIN">Admin / Support Lead</option>
+                    <option value="USER">Customer / Normal User</option>
+                    <option value="STAFF">Company Support Staff / Agent</option>
+                    <option value="ADMIN">System Administrator</option>
                   </select>
                 </div>
+
+                {role === 'STAFF' && (
+                  <div>
+                    <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1">
+                      Department Assignment
+                    </label>
+                    <select
+                      value={department}
+                      onChange={(e) => setDepartment(e.target.value)}
+                      className="w-full bg-[#111113] border border-[#27272A] rounded-lg px-3 py-2 text-xs text-[#FAFAFA] focus:outline-none focus:border-[#8B5CF6]"
+                    >
+                      <option value="TECHNICAL">Technical & API Support</option>
+                      <option value="BILLING">Billing & Accounts</option>
+                      <option value="GENERAL_SUPPORT">General Support</option>
+                      <option value="ESCALATION">Escalation & Tier 2</option>
+                    </select>
+                  </div>
+                )}
               </>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 py-2 px-4 rounded-lg bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-xs font-medium flex items-center justify-center space-x-1.5 transition-all shadow-sm shadow-[#8B5CF6]/25 active:scale-95 disabled:opacity-50"
+              className="w-full mt-2 py-2.5 px-4 rounded-lg bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-xs font-medium flex items-center justify-center space-x-1.5 transition-all shadow-sm shadow-[#8B5CF6]/25 active:scale-95 disabled:opacity-50"
             >
               {loading ? (
                 <span>Authenticating...</span>
