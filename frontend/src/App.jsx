@@ -146,10 +146,20 @@ export default function App() {
 
   // Role Switcher for instant perspective testing
   const handleSwitchRole = (newRole) => {
+    let username = 'john';
+    let department = null;
+    if (newRole === 'STAFF') {
+      username = 'sarah_staff';
+      department = 'TECHNICAL';
+    } else if (newRole === 'ADMIN') {
+      username = 'admin';
+    }
     const updated = {
-      ...(user || { id: 1, username: newRole === 'ADMIN' ? 'admin' : newRole === 'STAFF' ? 'sarah_staff' : 'john' }),
+      ...(user || {}),
+      id: user?.id || 1,
+      username,
       role: newRole,
-      department: newRole === 'STAFF' ? 'TECHNICAL' : null
+      department
     };
     setUser(updated);
     setCurrentUser(updated);

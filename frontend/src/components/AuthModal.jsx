@@ -27,17 +27,34 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
 
   const handleAutofill = (userType) => {
     setError(null);
-    if (userType === 'customer') {
+    if (userType === 'john') {
       setUsername('john');
       setPassword('pass123');
       setEmail('john@example.com');
       setRole('USER');
-    } else if (userType === 'staff') {
+    } else if (userType === 'alex') {
+      setUsername('alex_customer');
+      setPassword('customer123');
+      setEmail('alex.customer@techcorp.io');
+      setRole('USER');
+    } else if (userType === 'sarah') {
       setUsername('sarah_staff');
       setPassword('staff123');
-      setEmail('sarah.staff@resolvenow.io');
+      setEmail('sarah.tech@resolvenow.io');
       setRole('STAFF');
       setDepartment('TECHNICAL');
+    } else if (userType === 'mike') {
+      setUsername('mike_billing');
+      setPassword('billing123');
+      setEmail('mike.billing@resolvenow.io');
+      setRole('STAFF');
+      setDepartment('BILLING');
+    } else if (userType === 'david') {
+      setUsername('david_support');
+      setPassword('support123');
+      setEmail('david.support@resolvenow.io');
+      setRole('STAFF');
+      setDepartment('GENERAL_SUPPORT');
     } else if (userType === 'admin') {
       setUsername('admin');
       setPassword('admin123');
@@ -180,46 +197,64 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             </button>
           </div>
 
-          {/* Quick 1-Click Autofill Helper for All 3 Roles */}
+          {/* Quick 1-Click Autofill Helper for Sample Personas */}
           <div className="p-3 rounded-xl bg-[#111113] border border-[#27272A] space-y-2">
             <span className="text-[11px] text-[#71717A] font-medium block">
-              1-Click Test Personas:
+              1-Click Sample Test Personas:
             </span>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5 text-center">
               <button
                 type="button"
-                onClick={() => handleAutofill('customer')}
-                className={`py-1.5 px-2 rounded-lg text-[10px] font-mono border transition-colors ${
-                  role === 'USER'
-                    ? 'bg-[#8B5CF6]/15 border-[#8B5CF6]/40 text-[#FAFAFA]'
-                    : 'bg-[#18181B] border-[#27272A] text-[#A1A1AA] hover:text-[#FAFAFA]'
-                }`}
+                onClick={() => handleAutofill('john')}
+                className="py-1 px-1.5 rounded-lg text-[10px] font-mono border bg-[#18181B] border-[#27272A] text-[#A1A1AA] hover:text-[#FAFAFA] hover:border-[#8B5CF6]/50 transition-colors truncate"
+                title="Customer: john"
               >
-                Customer (john)
+                Customer: john
               </button>
 
               <button
                 type="button"
-                onClick={() => handleAutofill('staff')}
-                className={`py-1.5 px-2 rounded-lg text-[10px] font-mono border transition-colors ${
-                  role === 'STAFF'
-                    ? 'bg-[#8B5CF6]/15 border-[#8B5CF6]/40 text-[#FAFAFA]'
-                    : 'bg-[#18181B] border-[#27272A] text-[#A1A1AA] hover:text-[#FAFAFA]'
-                }`}
+                onClick={() => handleAutofill('alex')}
+                className="py-1 px-1.5 rounded-lg text-[10px] font-mono border bg-[#18181B] border-[#27272A] text-[#A1A1AA] hover:text-[#FAFAFA] hover:border-[#8B5CF6]/50 transition-colors truncate"
+                title="Customer: alex_customer"
               >
-                Staff (sarah)
+                Customer: alex
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleAutofill('sarah')}
+                className="py-1 px-1.5 rounded-lg text-[10px] font-mono border bg-[#18181B] border-[#27272A] text-[#8B5CF6] hover:border-[#8B5CF6] transition-colors truncate"
+                title="Staff (Tech): sarah_staff"
+              >
+                Staff: sarah (Tech)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleAutofill('mike')}
+                className="py-1 px-1.5 rounded-lg text-[10px] font-mono border bg-[#18181B] border-[#27272A] text-[#8B5CF6] hover:border-[#8B5CF6] transition-colors truncate"
+                title="Staff (Billing): mike_billing"
+              >
+                Staff: mike (Bill)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleAutofill('david')}
+                className="py-1 px-1.5 rounded-lg text-[10px] font-mono border bg-[#18181B] border-[#27272A] text-[#8B5CF6] hover:border-[#8B5CF6] transition-colors truncate"
+                title="Staff (Support): david_support"
+              >
+                Staff: david (Supp)
               </button>
 
               <button
                 type="button"
                 onClick={() => handleAutofill('admin')}
-                className={`py-1.5 px-2 rounded-lg text-[10px] font-mono border transition-colors ${
-                  role === 'ADMIN'
-                    ? 'bg-[#8B5CF6]/15 border-[#8B5CF6]/40 text-[#FAFAFA]'
-                    : 'bg-[#18181B] border-[#27272A] text-[#A1A1AA] hover:text-[#FAFAFA]'
-                }`}
+                className="py-1 px-1.5 rounded-lg text-[10px] font-mono border bg-[#18181B] border-[#27272A] text-rose-400 hover:border-rose-400 transition-colors truncate"
+                title="Admin: admin"
               >
-                Admin (admin)
+                Admin: admin
               </button>
             </div>
           </div>

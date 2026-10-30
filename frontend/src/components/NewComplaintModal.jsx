@@ -61,7 +61,8 @@ export default function NewComplaintModal({
         title: title.trim(),
         description: description.trim(),
         category,
-        priority
+        priority,
+        userId: user?.id || 1
       };
 
       const res = await api.complaints.create(payload);
