@@ -30,12 +30,33 @@ A microservices-based ticket management platform for logging customer grievances
 
 | Service | Port | Description |
 |---------|------|-------------|
+| **React Web Frontend** | 3000 | Modern UI with Live Render & Localhost switcher |
 | **Eureka Server** | 8761 | Service discovery and registry |
 | **API Gateway** | 8080 | Ingress routing, JWT validation, load balancing |
 | **Auth Service** | 8081 | User registration, login, JWT token management |
 | **Complaint Service** | 8082 | Log and track customer grievances |
 | **Assignment Service** | 8083 | Assign complaints to departments |
 | **Notification Service** | 8084 | Alert users on ticket updates |
+
+## Live Cloud Deployment
+
+- **Backend Gateway**: [https://resolvenow-service-desk.onrender.com](https://resolvenow-service-desk.onrender.com)
+- **Database**: PostgreSQL (Hosted on Render)
+- **GitHub Repository**: [https://github.com/Pavan19102006/resolvenow-service-desk](https://github.com/Pavan19102006/resolvenow-service-desk)
+
+## Quick Start (Frontend UI)
+
+Start the interactive React + Vite web application:
+```bash
+./start-frontend.sh
+```
+Or manually:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Open **`http://localhost:3000`** in your browser. The frontend is pre-configured to communicate with the live PostgreSQL backend on Render (`https://resolvenow-service-desk.onrender.com`) by default, and allows one-click switching to local microservices (`http://localhost:8080`) from the navigation bar.
 
 ## Tech Stack
 
