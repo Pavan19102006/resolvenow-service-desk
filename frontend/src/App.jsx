@@ -1,20 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import Navbar from './components/Navbar';
-import DashboardStats from './components/DashboardStats';
-import ComplaintList from './components/ComplaintList';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import Sidebar from './components/Sidebar';
+import TopBar from './components/TopBar';
+import KpiCards from './components/KpiCards';
+import ComplaintsTable from './components/ComplaintsTable';
+import ComplaintDrawer from './components/ComplaintDrawer';
 import NewComplaintModal from './components/NewComplaintModal';
 import AuthModal from './components/AuthModal';
 import ArchitectureModal from './components/ArchitectureModal';
-import {
-  Plus,
-  RefreshCw,
-  AlertCircle,
-  ShieldAlert,
-  Sparkles,
-  ArrowRight,
-  Database,
-  ExternalLink
-} from 'lucide-react';
 import {
   api,
   getToken,
@@ -23,6 +15,16 @@ import {
   setCurrentUser,
   getBaseUrl
 } from './services/api';
+import {
+  AlertCircle,
+  Plus,
+  RefreshCw,
+  ExternalLink,
+  ShieldAlert,
+  ArrowRight
+} from 'lucide-react';
+
+const SYNC_INTERVAL_SECONDS = 5;
 
 export default function App() {
   const [user, setUser] = useState(getCurrentUser());
@@ -32,77 +34,103 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Layout & Navigation State
+  const [activeTab, setActiveTab] = useState('tickets'); // 'tickets' or 'analytics'
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+
+  // Slide-out Drawer for selected complaint
+  const [selectedComplaint, setSelectedComplaint] = useState(null);
+
   // Modals
   const [isNewComplaintOpen, setIsNewComplaintOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isArchOpen, setIsArchOpen] = useState(false);
-  const [selectedComplaintId, setSelectedComplaintId] = useState(null);
 
-  // Dark mode
-  const [darkMode, setDarkMode] = useState(
-    window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-  );
+  // Auto-sync timer state
+  const [syncCountdown, setSyncCountdown] = useState(SYNC_INTERVAL_SECONDS);
+  const [lastSynced, setLastSynced] = useState(new Date());
 
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
+  // Backend URL tracker
+  const [backendUrl, setBackendUrl] = useState(getBaseUrl());
 
-  // Load complaints
-  const loadComplaints = useCallback(async () => {
+  // Fetch Complaints from Backend
+  const loadComplaints = useCallback(async (isSilent = false) => {
     if (!token) return;
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       setError(null);
       const data = await api.complaints.getAll();
-      setComplaints(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+      setComplaints(list);
+      setLastSynced(new Date());
+
+      // If drawer is currently open, keep its details updated with newest backend data
+      if (selectedComplaint) {
+        const updated = list.find((c) => c.id === selectedComplaint.id);
+        if (updated) setSelectedComplaint(updated);
+      }
     } catch (err) {
       if (err.status === 401) {
-        // Token expired or invalid
+        // Session expired
         handleLogout();
         setError('Your session has expired. Please sign in again.');
       } else {
-        setError(err.message || 'Failed to fetch complaints.');
+        // Network or server error
+        setError(err.message || 'Cannot fetch data from backend.');
       }
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
-  }, [token]);
+  }, [token, selectedComplaint?.id]);
 
-  // Load notifications
+  // Fetch Notifications from Backend
   const loadNotifications = useCallback(async () => {
     if (!token || !user?.id) return;
     try {
       const data = await api.notifications.getByUser(user.id);
       setNotifications(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.warn('Could not fetch notifications:', err.message);
+      // Non-critical, ignore silent warning
     }
   }, [token, user?.id]);
 
-  // Refresh all
-  const refreshAll = useCallback(() => {
-    loadComplaints();
-    loadNotifications();
+  // Combined Refresh
+  const refreshAll = useCallback(async (isSilent = false) => {
+    await Promise.all([loadComplaints(isSilent), loadNotifications()]);
+    setSyncCountdown(SYNC_INTERVAL_SECONDS);
   }, [loadComplaints, loadNotifications]);
 
+  // Periodic Auto-Sync Timer (updates backend data time to time)
   useEffect(() => {
-    if (token) {
-      refreshAll();
-      const interval = setInterval(refreshAll, 12000);
-      return () => clearInterval(interval);
-    }
+    if (!token) return;
+
+    // Initial load
+    refreshAll(false);
+
+    // 1-second interval to decrement countdown and auto-sync
+    const timer = setInterval(() => {
+      setSyncCountdown((prev) => {
+        if (prev <= 1) {
+          refreshAll(true);
+          return SYNC_INTERVAL_SECONDS;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, [token, refreshAll]);
 
+  // Handle successful login or registration
   const handleAuthSuccess = (userData, jwtToken) => {
     setUser(userData);
     setTokenState(jwtToken);
     setError(null);
+    setSyncCountdown(SYNC_INTERVAL_SECONDS);
   };
 
+  // Handle logout
   const handleLogout = () => {
     setToken(null);
     setCurrentUser(null);
@@ -110,157 +138,162 @@ export default function App() {
     setTokenState(null);
     setComplaints([]);
     setNotifications([]);
+    setSelectedComplaint(null);
+  };
+
+  // Handle status update directly in drawer or table
+  const handleStatusUpdated = (id, newStatus) => {
+    setComplaints((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, status: newStatus } : c))
+    );
+    if (selectedComplaint && selectedComplaint.id === id) {
+      setSelectedComplaint((prev) => ({ ...prev, status: newStatus }));
+    }
+    // Refresh backend to confirm persistence
+    refreshAll(true);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors">
-      {/* Top Navigation */}
-      <Navbar
+    <div className="min-h-screen bg-[#09090B] text-[#FAFAFA] font-sans flex antialiased selection:bg-[#8B5CF6] selection:text-white">
+      {/* 1. Fixed Left Sidebar */}
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        ticketCount={complaints.length}
         user={user}
         onLogout={handleLogout}
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenArchitecture={() => setIsArchOpen(true)}
-        notifications={notifications}
-        onRefreshNotifications={loadNotifications}
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
-        onSelectComplaint={(id) => setSelectedComplaintId(id)}
+        onBackendChange={(newUrl) => {
+          setBackendUrl(newUrl);
+          refreshAll(false);
+        }}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Banner if not signed in */}
-        {!token && (
-          <div className="p-6 rounded-3xl bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 uppercase tracking-wider">
-                Full-Stack Cloud Connected
-              </span>
-              <h2 className="text-xl sm:text-2xl font-black tracking-tight">
-                Welcome to ResolveNow Service Desk
-              </h2>
-              <p className="text-xs sm:text-sm text-indigo-200/90 max-w-2xl">
-                Integrated with live Spring Cloud microservices on Render & PostgreSQL. Sign in or
-                create an account with 1-click test credentials to lodge complaints and track
-                automated departmental routing.
-              </p>
-            </div>
-            <button
-              onClick={() => setIsAuthOpen(true)}
-              className="px-5 py-2.5 rounded-xl font-bold text-xs bg-white text-indigo-900 hover:bg-indigo-50 shadow-lg shadow-black/20 flex items-center space-x-2 transition-transform transform active:scale-95 flex-shrink-0"
-            >
-              <span>Get Started</span>
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-
-        {/* Global Error Alert */}
-        {error && (
-          <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-400 text-xs flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <AlertCircle className="h-4 w-4 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-            <button
-              onClick={refreshAll}
-              className="px-2.5 py-1 rounded-lg bg-rose-100 dark:bg-rose-900/60 font-semibold text-[11px] hover:bg-rose-200 transition-colors"
-            >
-              Retry
-            </button>
-          </div>
-        )}
-
-        {/* Dashboard KPIs */}
-        <DashboardStats
-          complaints={complaints}
-          onFilterStatus={(status) => {
-            // Optional quick filter trigger
+      {/* Main Content Area (Offset by sidebar width of 256px / 64) */}
+      <div className="pl-64 flex-1 flex flex-col min-w-0">
+        {/* 2. Minimal Top Navigation & Global Search */}
+        <TopBar
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          onRefresh={() => refreshAll(false)}
+          loading={loading}
+          lastSynced={lastSynced}
+          syncCountdown={syncCountdown}
+          notifications={notifications}
+          onRefreshNotifications={loadNotifications}
+          onOpenNewComplaint={() => {
+            if (!token) {
+              setIsAuthOpen(true);
+            } else {
+              setIsNewComplaintOpen(true);
+            }
+          }}
+          onSelectComplaint={(complaintId) => {
+            const found = complaints.find((c) => c.id === complaintId);
+            if (found) setSelectedComplaint(found);
           }}
         />
 
-        {/* Main Section Header with Action Buttons */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-          <div>
-            <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
-              Customer Grievances & Service Tickets
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Live tickets processed through Gateway and auto-assigned by the Assignment microservice
-            </p>
+        {/* Content Body */}
+        <main className="flex-1 p-6 space-y-6 max-w-7xl w-full">
+          {/* Guest Sign-in Banner (if user hasn't logged in yet) */}
+          {!token && (
+            <div className="p-4 rounded-xl bg-[#18181B] border border-[#27272A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center space-x-2">
+                  <span className="w-2 h-2 rounded-full bg-[#8B5CF6] animate-pulse"></span>
+                  <span className="text-xs font-semibold text-[#FAFAFA]">
+                    Connect to Live Microservices
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#A1A1AA]">
+                  Sign in or register with 1-click test credentials (<span className="text-[#8B5CF6] font-mono">john / pass123</span>) to lodge tickets and observe real-time departmental auto-routing.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsAuthOpen(true)}
+                className="px-3.5 py-1.5 rounded-lg bg-[#8B5CF6] hover:bg-[#7C3AED] text-[#FAFAFA] text-xs font-medium shrink-0 transition-colors"
+              >
+                Sign In / Register
+              </button>
+            </div>
+          )}
+
+          {/* Error Notice */}
+          {error && (
+            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+              <button
+                onClick={() => refreshAll(false)}
+                className="px-2.5 py-1 rounded text-[11px] bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-medium transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {/* 3. Four Clean KPI Cards */}
+          <KpiCards
+            complaints={complaints}
+            onFilterStatus={(status) => setStatusFilter(status)}
+          />
+
+          {/* 4. Professional Complaints Table */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-[#FAFAFA]">
+                  Customer Grievances & Service Tickets
+                </h2>
+                <p className="text-[11px] text-[#71717A]">
+                  Dispatched via Spring Cloud Gateway and auto-assigned by the Assignment microservice
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <span className="text-[10px] font-mono text-[#71717A] hidden sm:inline">
+                  Updated every 5s
+                </span>
+                <button
+                  onClick={() => refreshAll(false)}
+                  disabled={loading}
+                  className="p-1.5 rounded-lg bg-[#18181B] border border-[#27272A] text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
+                  title="Manual refresh"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#8B5CF6]' : ''}`} />
+                </button>
+              </div>
+            </div>
+
+            <ComplaintsTable
+              complaints={complaints}
+              searchQuery={searchQuery}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+              onSelectComplaint={(ticket) => setSelectedComplaint(ticket)}
+              selectedComplaintId={selectedComplaint?.id}
+            />
           </div>
+        </main>
+      </div>
 
-          <div className="flex items-center space-x-2.5 self-start sm:self-auto">
-            <button
-              onClick={refreshAll}
-              disabled={loading}
-              className="p-2 sm:px-3 sm:py-2 text-xs font-semibold rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm flex items-center gap-1.5"
-              title="Refresh tickets"
-            >
-              <RefreshCw className={`h-4 w-4 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
-            </button>
+      {/* 5. Slide-Out Drawer for Complaint Details */}
+      <ComplaintDrawer
+        complaint={selectedComplaint}
+        onClose={() => setSelectedComplaint(null)}
+        onStatusUpdated={handleStatusUpdated}
+      />
 
-            <button
-              onClick={() => {
-                if (!token) {
-                  setIsAuthOpen(true);
-                } else {
-                  setIsNewComplaintOpen(true);
-                }
-              }}
-              className="px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/25 transition-all flex items-center space-x-1.5 transform active:scale-95"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Lodge New Complaint</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Complaints Listing */}
-        <ComplaintList
-          complaints={complaints}
-          onRefresh={refreshAll}
-          selectedComplaintId={selectedComplaintId}
-          onSelectComplaint={(id) => setSelectedComplaintId(id)}
-        />
-      </main>
-
-      {/* Footer */}
-      <footer className="mt-auto border-t border-slate-200 dark:border-slate-800 py-6 bg-white dark:bg-slate-900 text-xs text-slate-500 dark:text-slate-400">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center space-x-2">
-            <span className="font-bold text-slate-700 dark:text-slate-300">ResolveNow</span>
-            <span>—</span>
-            <span>Spring Boot 3.2.0 Microservices Architecture</span>
-          </div>
-
-          <div className="flex items-center space-x-4 text-[11px]">
-            <button
-              onClick={() => setIsArchOpen(true)}
-              className="hover:text-indigo-600 dark:hover:text-indigo-400 font-medium"
-            >
-              Architecture & API Spec
-            </button>
-            <a
-              href="https://resolvenow-service-desk.onrender.com"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 font-medium"
-            >
-              <span>Live Render Backend</span>
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          </div>
-        </div>
-      </footer>
-
-      {/* Modals */}
+      {/* 6. Modals */}
       <NewComplaintModal
         isOpen={isNewComplaintOpen}
         onClose={() => setIsNewComplaintOpen(false)}
         onSuccess={() => {
-          refreshAll();
+          refreshAll(false);
         }}
         user={user}
       />
